@@ -1,0 +1,56 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+
+android {
+    namespace = "app.murmur"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "app.murmur"
+        minSdk = 26
+        targetSdk = 36
+        versionCode = 1
+        versionName = "0.2.0"
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    buildFeatures {
+        compose = true
+    }
+}
+
+dependencies {
+    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+
+    // On-device Piper / Kokoro voices. Pinned to 1.13.8: sherpa-onnx 2.x removed espeak-ng,
+    // which these voice packs need. Download the AAR (see README) into app/libs.
+    implementation(files("libs/sherpa-onnx-1.13.8.aar"))
+    implementation("org.apache.commons:commons-compress:1.28.0")
+
+    val media3 = "1.11.1"
+    implementation("androidx.media3:media3-exoplayer:$media3")
+    implementation("androidx.media3:media3-session:$media3")
+    implementation("androidx.media3:media3-common:$media3")
+
+    debugImplementation("androidx.compose.ui:ui-tooling")
+}

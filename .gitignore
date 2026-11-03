@@ -1,0 +1,17 @@
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+.idea/
+.kotlin/
+captures/
+# Content stays out of the repo (see docs/storage-design.md)
+content/
+*.opus
+*.wav
+*.onnx
+# Native voice library (47 MB). Download it as described in the README.
+app/libs/*.aar

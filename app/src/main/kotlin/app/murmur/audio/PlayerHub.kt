@@ -1,0 +1,459 @@
+package app.murmur.audio
+
+import android.content.ComponentName
+import android.content.Context
+import android.media.MediaPlayer
+import android.net.Uri
+import android.os.SystemClock
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import app.murmur.App
+import app.murmur.data.Story
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import java.io.File
+
+/**
+ * Single owner of playback. Asks the Director for a plan (who speaks, pace, background sound per
+ * segment), generates each segment with its voice (cached on disk), streams them into ExoPlayer
+ * as they become ready, and applies the plan's speed and sound as segments change.
+ */
+object PlayerHub {
+    private lateinit var app: Context
+    lateinit var engine: VoiceEngine
+        private set
+    lateinit var sherpa: SherpaEngine
+        private set
+    val ambience = Ambience()
+
+    private var exo: ExoPlayer? = null
+    val player: ExoPlayer get() = exo ?: build()
+
+    var current by mutableStateOf<Story?>(null)
+    var playing by mutableStateOf(false)
+    var status by mutableStateOf("")
+    var part by mutableIntStateOf(0)
+    var parts by mutableIntStateOf(0)
+    var fraction by mutableFloatStateOf(0f)
+    var generating by mutableStateOf(false)
+    var finished by mutableStateOf(false)
+    var sleepLeftMs by mutableLongStateOf(0L)
+
+    // Director state for the UI
+    var plan by mutableStateOf<Plan?>(null)
+    var nowRole by mutableStateOf(Role.NARRATOR)
+    var nowSpeed by mutableFloatStateOf(1f)
+    var nowAmbience by mutableStateOf(AmbienceKind.NONE)
+    var roleVoices by mutableStateOf<Map<Role, VoiceInfo>>(emptyMap())
+
+    var previewStatus by mutableStateOf("")
+
+    private var segments: List<Segment> = emptyList()
+    private var voiceFor: Map<Role, String> = emptyMap()
+    private var base = 0
+    private var genJob: Job? = null
+    private var ticker: Job? = null
+    private var sleepEnd = 0L
+    private var serviceStarted = false
+    private var forceStart = false
+    private var previewJob: Job? = null
+    private var previewPlayer: MediaPlayer? = null
+
+    fun init(context: Context) {
+        app = context.applicationContext
+        PackManager.init(app)
+        sherpa = SherpaEngine()
+        engine = CompositeEngine(TtsGenerator(app), sherpa)
+    }
+
+    /** Reads a short sentence in the currently selected voice so you can hear it. */
+    fun preview() {
+        previewJob?.cancel()
+        previewPlayer?.release()
+        previewPlayer = null
+        exo?.pause()
+        previewJob = App.scope.launch {
+            val voice = engine.resolveVoice(App.voiceName)
+            val f = File(app.filesDir, "preview/${safe(voice)}.wav")
+            if (!f.exists() || f.length() < 1024) {
+                previewStatus = "Preparing voice..."
+                val ok = engine.synth(
+                    "Peace be upon you. This is how I will read your stories, slowly and calmly.",
+                    voice,
+                    f,
+                )
+                if (!ok) {
+                    previewStatus = "Could not prepare this voice."
+                    return@launch
+                }
+            }
+            previewStatus = "Playing..."
+            previewPlayer = MediaPlayer().apply {
+                setDataSource(f.absolutePath)
+                setOnCompletionListener {
+                    it.release()
+                    previewPlayer = null
+                    previewStatus = ""
+                }
+                prepare()
+                start()
+            }
+        }
+    }
+
+    private fun build(): ExoPlayer {
+        val p = ExoPlayer.Builder(app)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+                    .build(),
+                true,
+            )
+            .setHandleAudioBecomingNoisy(true)
+            .setWakeMode(C.WAKE_MODE_LOCAL)
+            .build()
+        exo = p
+        p.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                playing = isPlaying
+                updateAmbience()
+            }
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                applyParams()
+            }
+
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED && generating) status = "Preparing next part..."
+                if (state == Player.STATE_ENDED && !generating) {
+                    current?.let { App.markCompleted(it.id) }
+                    finished = true
+                    status = "Finished"
+                    updateAmbience()
+                }
+            }
+        })
+        applyParams()
+        startTicker()
+        return p
+    }
+
+    private fun ensureService() {
+        if (serviceStarted) return
+        serviceStarted = true
+        val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
+        MediaController.Builder(app, token).buildAsync()
+    }
+
+    private fun currentSegment(): Segment? {
+        val p = exo ?: return null
+        if (p.mediaItemCount == 0) return null
+        return segments.getOrNull(base + p.currentMediaItemIndex)
+    }
+
+    /** Apply speed and background sound for the segment now playing (Director or manual choice). */
+    fun applyParams() {
+        val seg = currentSegment()
+        nowRole = seg?.role ?: Role.NARRATOR
+        nowSpeed = if (App.autoSpeed && seg != null) seg.speed else App.speed
+        nowAmbience = if (App.autoSound && seg != null) seg.ambience else App.ambience
+        exo?.playbackParameters = PlaybackParameters(nowSpeed, App.pitch)
+        updateAmbience()
+    }
+
+    fun updateAmbience() {
+        ambience.update(nowAmbience, App.ambienceVolume, exo?.isPlaying == true)
+    }
+
+    private fun safe(s: String) = s.replace(Regex("[^A-Za-z0-9_-]"), "_")
+
+    /** Narrator = the chosen voice. Characters = other voices, same voice pack first, matched by gender. */
+    private suspend fun assignVoices(): Map<Role, String> {
+        val narrator = engine.resolveVoice(App.voiceName)
+        val all = engine.voices()
+        fun info(n: String) = all.firstOrNull { it.name == n } ?: VoiceInfo(n, "Default voice", true)
+        if (!App.autoVoice) {
+            roleVoices = mapOf(Role.NARRATOR to info(narrator))
+            return Role.entries.associateWith { narrator }
+        }
+        val nar = all.firstOrNull { it.name == narrator }
+        val ordered = all.sortedBy { v ->
+            when {
+                v.family == (nar?.family ?: "system") -> 0
+                v.family != "system" -> 1
+                else -> 2
+            }
+        }
+        fun pick(g: Gender): String =
+            ordered.firstOrNull { it.gender == g && it.name != narrator && it.offline }?.name
+                ?: ordered.firstOrNull { it.gender == g && it.name != narrator }?.name
+                ?: narrator
+        val map = mapOf(Role.NARRATOR to narrator, Role.MALE to pick(Gender.MALE), Role.FEMALE to pick(Gender.FEMALE))
+        roleVoices = map.mapValues { (_, n) -> info(n) }
+        return map
+    }
+
+    fun play(story: Story, fromStart: Boolean = false) {
+        val p = player
+        if (current?.id == story.id && p.mediaItemCount > 0 && !fromStart && !finished) {
+            p.play()
+            return
+        }
+        stopInternal()
+        ensureService()
+        current = story
+        finished = false
+        fraction = 0f
+        status = "Reading the story..."
+
+        val pl = Director.plan(story)
+        plan = pl
+        segments = pl.segments
+        parts = segments.size
+        val saved = if (fromStart) null else App.savedProgress(story.id)
+        base = (saved?.first ?: 0).coerceIn(0, segments.size - 1)
+        part = base
+        if (fromStart) App.clearProgress(story.id)
+        forceStart = false
+
+        genJob = App.scope.launch {
+            generating = true
+            voiceFor = assignVoices()
+            val narrator = voiceFor[Role.NARRATOR] ?: ""
+            status = "Loading voice..."
+            engine.warmUp(narrator)
+            val dir = File(app.filesDir, "audio/${story.id}")
+
+            // Adaptive buffering: measure how fast voices generate on this phone, then start only when
+            // every remaining segment is predicted to be ready before playback reaches it.
+            var genAudioSec = 0.0
+            var genWallSec = 0.0
+            var bufferedSec = 0.0
+            var started = false
+
+            fun canStart(done: Int): Boolean {
+                if (genWallSec <= 0.0) return true
+                val rate = genAudioSec / genWallSec
+                var finish = 0.0
+                var needAt = bufferedSec
+                for (j in done + 1 until segments.size) {
+                    val d = segments[j].text.length / 17.0
+                    finish += d / rate
+                    if (finish > needAt + 1.0) return false
+                    needAt += d
+                }
+                return true
+            }
+
+            for (i in base until segments.size) {
+                val seg = segments[i]
+                val voice = voiceFor[seg.role] ?: narrator
+                val f = File(dir, "seg_${i}_${safe(voice)}.wav")
+                if (!f.exists() || f.length() < 1024) {
+                    // While playing, say nothing: the player listener shows "Preparing next part..." only if
+                    // playback actually catches up with generation.
+                    if (!started) status = "Preparing voice (${i + 1}/${segments.size})..."
+                    f.delete()
+                    val t0 = System.nanoTime()
+                    val ok = engine.synth(seg.text, voice, f)
+                    if (!ok) {
+                        status = "Voice engine error. Check Settings > Text-to-speech in Android."
+                        generating = false
+                        return@launch
+                    }
+                    val secs = wavSeconds(f)
+                    genWallSec += (System.nanoTime() - t0) / 1e9
+                    genAudioSec += secs
+                    bufferedSec += secs
+                } else {
+                    bufferedSec += wavSeconds(f)
+                }
+                val item = MediaItem.Builder()
+                    .setMediaId("${story.id}#$i")
+                    .setUri(Uri.fromFile(f))
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(story.title)
+                            .setArtist(story.author)
+                            .setAlbumTitle(story.category)
+                            .build(),
+                    )
+                    .build()
+                p.addMediaItem(item)
+                val idx = i - base
+                if (idx == 0) {
+                    p.playWhenReady = false
+                    p.prepare()
+                    if (saved != null && saved.second > 0) p.seekTo(0, saved.second)
+                    applyParams()
+                }
+                if (!started) {
+                    val allDone = i == segments.size - 1
+                    if (forceStart || allDone || canStart(i)) {
+                        started = true
+                        if (p.playbackState == Player.STATE_ENDED) p.seekTo(0, saved?.second ?: 0L)
+                        p.playWhenReady = true
+                        status = ""
+                    } else {
+                        val pct = (((i - base + 1) * 100) / (segments.size - base)).coerceIn(0, 99)
+                        status = "Preparing for smooth listening... $pct%"
+                    }
+                } else if (p.playbackState == Player.STATE_ENDED) {
+                    p.seekTo(idx, 0)
+                    p.play()
+                    status = ""
+                } else if (status.startsWith("Preparing")) {
+                    status = ""
+                }
+            }
+            generating = false
+            if (p.playbackState == Player.STATE_ENDED) {
+                current?.let { App.markCompleted(it.id) }
+                finished = true
+                status = "Finished"
+            }
+        }
+    }
+
+    /** Start playing now even if the voice is still preparing (playback may pause while it catches up). */
+    fun startNow() {
+        forceStart = true
+        val p = exo ?: return
+        if (p.mediaItemCount > 0) {
+            p.playWhenReady = true
+            if (status.startsWith("Preparing for smooth")) status = ""
+        }
+    }
+
+    private fun wavSeconds(f: File): Double {
+        if (f.length() <= 44) return 0.0
+        return runCatching {
+            f.inputStream().use { s ->
+                val h = ByteArray(28)
+                if (s.read(h) < 28) return 0.0
+                val rate = (h[24].toInt() and 0xFF) or ((h[25].toInt() and 0xFF) shl 8) or
+                    ((h[26].toInt() and 0xFF) shl 16) or ((h[27].toInt() and 0xFF) shl 24)
+                if (rate <= 0) 0.0 else (f.length() - 44) / (rate * 2.0)
+            }
+        }.getOrDefault(0.0)
+    }
+
+    fun togglePlay() {
+        val p = player
+        if (p.isPlaying) p.pause() else {
+            if (p.playbackState == Player.STATE_ENDED && !generating) current?.let { play(it, fromStart = true) }
+            else p.play()
+        }
+    }
+
+    fun seekBy(ms: Long) {
+        val p = player
+        val target = p.currentPosition + ms
+        if (ms > 0 && p.duration > 0 && target > p.duration && p.hasNextMediaItem()) p.seekToNextMediaItem()
+        else p.seekTo(target.coerceAtLeast(0))
+    }
+
+    fun next() { if (player.hasNextMediaItem()) player.seekToNextMediaItem() }
+    fun previous() {
+        val p = player
+        if (p.currentPosition > 3000 || !p.hasPreviousMediaItem()) p.seekTo(0) else p.seekToPreviousMediaItem()
+    }
+
+    fun restart() { current?.let { play(it, fromStart = true) } }
+
+    fun setSleep(minutes: Int) {
+        if (minutes <= 0) {
+            sleepEnd = 0L
+            sleepLeftMs = 0L
+        } else {
+            sleepEnd = SystemClock.elapsedRealtime() + minutes * 60_000L
+            sleepLeftMs = minutes * 60_000L
+        }
+    }
+
+    fun saveProgress() {
+        val s = current ?: return
+        val p = exo ?: return
+        if (p.mediaItemCount == 0 || finished) return
+        App.saveProgress(s.id, base + p.currentMediaItemIndex, p.currentPosition)
+    }
+
+    private fun stopInternal() {
+        saveProgress()
+        genJob?.cancel()
+        genJob = null
+        engine.stop()
+        exo?.let {
+            it.playWhenReady = false // stop() keeps this flag; a new story must not auto-play its first part
+            it.stop()
+            it.clearMediaItems()
+        }
+        generating = false
+        playing = false
+        updateAmbience()
+    }
+
+    fun stopAll() {
+        stopInternal()
+        current = null
+        plan = null
+        segments = emptyList()
+        status = ""
+    }
+
+    private fun startTicker() {
+        ticker?.cancel()
+        ticker = App.scope.launch {
+            var acc = 0
+            var lastIdx = -1
+            while (isActive) {
+                delay(500)
+                val p = exo ?: continue
+                if (p.mediaItemCount > 0) {
+                    val idx = p.currentMediaItemIndex
+                    if (idx != lastIdx) {
+                        lastIdx = idx
+                        applyParams()
+                    }
+                    part = base + idx
+                    val dur = if (p.duration > 0) p.duration else 1L
+                    val pf = (p.currentPosition.toFloat() / dur).coerceIn(0f, 1f)
+                    fraction = ((part + pf) / parts.coerceAtLeast(1)).coerceIn(0f, 1f)
+                }
+                if (p.isPlaying) {
+                    acc += 500
+                    if (acc >= 10_000) {
+                        acc = 0
+                        App.addListening(10)
+                        saveProgress()
+                    }
+                }
+                if (sleepEnd > 0L) {
+                    val left = sleepEnd - SystemClock.elapsedRealtime()
+                    if (left <= 0L) {
+                        sleepEnd = 0L
+                        sleepLeftMs = 0L
+                        p.pause()
+                        saveProgress()
+                    } else sleepLeftMs = left
+                }
+            }
+        }
+    }
+}
