@@ -10,18 +10,33 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,6 +48,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,8 +56,10 @@ import androidx.core.content.ContextCompat
 import app.murmur.audio.PlayerHub
 import app.murmur.data.Story
 import app.murmur.ui.AddStoryScreen
+import app.murmur.ui.Cover
 import app.murmur.ui.DoneScreen
 import app.murmur.ui.HomeScreen
+import app.murmur.ui.Ink
 import app.murmur.ui.LibraryScreen
 import app.murmur.ui.MurmurTheme
 import app.murmur.ui.PauseScreen
@@ -97,20 +115,11 @@ private fun Root() {
             Column {
                 if (PlayerHub.current != null && screen != Screen.PLAYER) MiniPlayer { screen = Screen.PLAYER }
                 if (screen in tabs) {
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                        listOf(
-                            Triple(Screen.HOME, "🏠", "Home"),
-                            Triple(Screen.LIBRARY, "📚", "Library"),
-                            Triple(Screen.ADD, "➕", "Add"),
-                            Triple(Screen.SETTINGS, "⚙️", "Settings"),
-                        ).forEach { (s, icon, label) ->
-                            NavigationBarItem(
-                                selected = screen == s,
-                                onClick = { screen = s },
-                                icon = { Text(icon) },
-                                label = { Text(label) },
-                            )
-                        }
+                    NavigationBar(containerColor = Ink.lamp, tonalElevation = 0.dp) {
+                        Tab(Screen.HOME, "Home", Icons.Outlined.Home, screen) { screen = it }
+                        Tab(Screen.LIBRARY, "Library", Icons.Outlined.List, screen) { screen = it }
+                        Tab(Screen.ADD, "Add", Icons.Outlined.Add, screen) { screen = it }
+                        Tab(Screen.SETTINGS, "Settings", Icons.Outlined.Settings, screen) { screen = it }
                     }
                 }
             }
@@ -131,21 +140,56 @@ private fun Root() {
 }
 
 @Composable
+private fun androidx.compose.foundation.layout.RowScope.Tab(
+    target: Screen,
+    label: String,
+    icon: ImageVector,
+    current: Screen,
+    onSelect: (Screen) -> Unit,
+) {
+    NavigationBarItem(
+        selected = current == target,
+        onClick = { onSelect(target) },
+        icon = { Icon(icon, contentDescription = label) },
+        label = { Text(label) },
+        colors = NavigationBarItemDefaults.colors(
+            indicatorColor = Ink.lampHigh,
+            selectedIconColor = Ink.ember,
+            selectedTextColor = Ink.ember,
+            unselectedIconColor = Ink.dusk,
+            unselectedTextColor = Ink.dusk,
+        ),
+    )
+}
+
+@Composable
 private fun MiniPlayer(onClick: () -> Unit) {
     val s = PlayerHub.current ?: return
-    Surface(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
+    Surface(color = Ink.lampHigh, modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
         Column {
-            LinearProgressIndicator(progress = { PlayerHub.fraction }, modifier = Modifier.fillMaxWidth())
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            LinearProgressIndicator(progress = { PlayerHub.fraction }, color = Ink.ember, trackColor = Ink.lamp, modifier = Modifier.fillMaxWidth().height(2.dp))
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Cover(s, Modifier.width(38.dp).aspectRatio(0.78f), corner = 8.dp)
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                     Text(
-                        PlayerHub.status.ifBlank { "Part ${PlayerHub.part + 1} of ${PlayerHub.parts}" },
+                        PlayerHub.status.ifBlank { if (PlayerHub.playing) "Playing" else "Paused" },
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Ink.dusk,
                     )
                 }
-                Button(onClick = { PlayerHub.togglePlay() }) { Text(if (PlayerHub.playing) "Pause" else "Play") }
+                Box(
+                    Modifier.size(40.dp).background(Ink.ember, CircleShape).clickable { PlayerHub.togglePlay() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (PlayerHub.playing) {
+                        Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+                            Box(Modifier.width(4.dp).height(14.dp).background(Ink.onEmber, RoundedCornerShape(2.dp)))
+                            Box(Modifier.width(4.dp).height(14.dp).background(Ink.onEmber, RoundedCornerShape(2.dp)))
+                        }
+                    } else Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Ink.onEmber)
+                }
             }
         }
     }

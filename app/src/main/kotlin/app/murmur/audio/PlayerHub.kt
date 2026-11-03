@@ -161,6 +161,23 @@ object PlayerHub {
         MediaController.Builder(app, token).buildAsync()
     }
 
+    /** Estimated seconds per segment (actual once generated). Used for whole-story progress and seeking. */
+    private var estSec: DoubleArray = DoubleArray(0)
+    val totalSeconds: Double get() = estSec.sum()
+    var positionSeconds by mutableFloatStateOf(0f)
+
+    /** Jump anywhere in the story. Parts not generated yet can't be reached; we go to the last ready part. */
+    fun seekToFraction(f: Float) {
+        val p = exo ?: return
+        if (segments.isEmpty() || p.mediaItemCount == 0) return
+        var target = (f.coerceIn(0f, 1f) * totalSeconds)
+        var k = 0
+        while (k < segments.size - 1 && target > estSec[k]) { target -= estSec[k]; k++ }
+        val idx = (k - base).coerceIn(0, p.mediaItemCount - 1)
+        val offset = if (k - base == idx) (target * 1000).toLong() else 0L
+        p.seekTo(idx, offset)
+    }
+
     private fun currentSegment(): Segment? {
         val p = exo ?: return null
         if (p.mediaItemCount == 0) return null
@@ -226,6 +243,8 @@ object PlayerHub {
         plan = pl
         segments = pl.segments
         parts = segments.size
+        estSec = DoubleArray(segments.size) { segments[it].text.length / 17.0 }
+        positionSeconds = 0f
         val saved = if (fromStart) null else App.savedProgress(story.id)
         base = (saved?.first ?: 0).coerceIn(0, segments.size - 1)
         part = base
@@ -281,8 +300,11 @@ object PlayerHub {
                     genWallSec += (System.nanoTime() - t0) / 1e9
                     genAudioSec += secs
                     bufferedSec += secs
+                    if (secs > 0) estSec[i] = secs
                 } else {
-                    bufferedSec += wavSeconds(f)
+                    val secs = wavSeconds(f)
+                    bufferedSec += secs
+                    if (secs > 0) estSec[i] = secs
                 }
                 val item = MediaItem.Builder()
                     .setMediaId("${story.id}#$i")
@@ -432,9 +454,11 @@ object PlayerHub {
                         applyParams()
                     }
                     part = base + idx
-                    val dur = if (p.duration > 0) p.duration else 1L
-                    val pf = (p.currentPosition.toFloat() / dur).coerceIn(0f, 1f)
-                    fraction = ((part + pf) / parts.coerceAtLeast(1)).coerceIn(0f, 1f)
+                    val before = (0 until part.coerceAtMost(estSec.size)).sumOf { estSec[it] }
+                    val pos = before + p.currentPosition / 1000.0
+                    positionSeconds = pos.toFloat()
+                    val total = totalSeconds
+                    fraction = if (total > 0) (pos / total).toFloat().coerceIn(0f, 1f) else 0f
                 }
                 if (p.isPlaying) {
                     acc += 500

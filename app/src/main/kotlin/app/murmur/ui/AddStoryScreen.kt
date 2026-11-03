@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package app.murmur.ui
 
@@ -8,11 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,51 +34,47 @@ fun AddStoryScreen(onSaved: (Story) -> Unit) {
     var cat by remember { mutableStateOf(Categories.YOURS) }
     var rights by remember { mutableStateOf<String?>(null) }
     val ok = title.isNotBlank() && body.trim().length >= 100 && rights != null
+    val colors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = Ink.ember,
+        unfocusedBorderColor = Ink.line,
+        cursorColor = Ink.ember,
+    )
 
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-        Text("Add a story", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 24.dp))
-        Text(
-            "Write or paste a story and Murmur will read it aloud in the voice you choose. It stays on your phone.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
-        )
-        OutlinedTextField(title, { title = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(
-            author, { author = it }, label = { Text("Author (optional)") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        )
-        SectionTitle("Shelf")
-        FlowRow(horizontalArrangement = spacedRow) {
-            Categories.forUpload.forEach { c ->
-                FilterChip(selected = cat == c, onClick = { cat = c }, label = { Text(c) })
-            }
-        }
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 22.dp)) {
+        Text("Add a story", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
+        Quiet("Paste or write a story. Murmur reads it aloud with the voices you've chosen, and keeps it on this phone.", Modifier.padding(top = 6.dp))
+
+        OutlinedTextField(title, { title = it }, placeholder = { Text("Title") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = colors, modifier = Modifier.fillMaxWidth().padding(top = 20.dp))
+        OutlinedTextField(author, { author = it }, placeholder = { Text("Author, if not you") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = colors, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
         OutlinedTextField(
             body, { body = it },
-            label = { Text("Story text") },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp).padding(top = 12.dp),
-            supportingText = { Text("${body.trim().length} characters (at least 100)") },
+            placeholder = { Text("Once upon a time...") },
+            shape = RoundedCornerShape(14.dp),
+            colors = colors,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp).padding(top = 10.dp),
+            supportingText = { Text("${body.trim().length} characters, at least 100", color = Ink.dusk) },
         )
-        SectionTitle("Rights")
-        Text(
-            "Only add stories you have the right to share.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        FlowRow(horizontalArrangement = spacedRow, modifier = Modifier.padding(top = 8.dp)) {
-            Rights.userChoices.forEach { r ->
-                FilterChip(selected = rights == r, onClick = { rights = r }, label = { Text(r) })
-            }
+
+        Heading("Shelf")
+        FlowRow(horizontalArrangement = spacedRow, verticalArrangement = spacedRow) {
+            Categories.forUpload.forEach { c -> Pill(c, cat == c) { cat = c } }
         }
-        Button(
-            onClick = {
+
+        Heading("Who owns it?")
+        FlowRow(horizontalArrangement = spacedRow, verticalArrangement = spacedRow) {
+            Rights.userChoices.forEach { r -> Pill(r, rights == r) { rights = r } }
+        }
+        Quiet("Only add stories you have the right to share.", Modifier.padding(top = 8.dp))
+
+        PrimaryButton(
+            "Save and listen",
+            {
                 val s = App.addUserStory(title, author, cat, body, rights!!)
                 title = ""; author = ""; body = ""; rights = null
                 onSaved(s)
             },
+            Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 36.dp),
             enabled = ok,
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 32.dp),
-        ) { Text("Save and listen") }
+        )
     }
 }
