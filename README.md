@@ -27,6 +27,20 @@ D:\DevData\gradle-9.8.2\bin\gradle.bat assembleDebug
 Output: `app\build\outputs\apk\debug\app-debug.apk`. Install on a phone with `adb install -r <apk>`.
 The wrapper (`gradlew`) points at the same Gradle version but its built-in download can stall; the local copy at `D:\DevData\gradle-9.8.2` (fetched with aria2) avoids that.
 
+## Design
+Lantern-at-night palette (`ui/Theme.kt`: Night, Lamp, Ember, Moth, Dusk, Moss). Type: Fraunces for titles,
+Manrope for UI — static instances baked with fontTools from the Google Fonts variable files (runtime axis
+settings were not applied on the test phone); OFL texts in `docs/licenses/`. Every story gets a generated
+paper-cut night-landscape cover (`ui/Covers.kt`), seeded by its id and tinted by shelf. The player shows a
+scene strip: one band per segment, colored by the background the Director chose.
+
+## Story Director
+`audio/Director.kt` reads a story and plans, per segment, who speaks (narrator / male / female character
+for quoted lines), the pace, and the background sound. It learns characters' genders from attributed lines
+("the mouse ... she said"), drops short speech tags, and uses keyword scenes with hysteresis. Each of the
+three decisions can be overridden in the Tune sheet or Settings. The on-device LLM version is planned in
+`docs/ai-director.md`.
+
 ## Voices (Piper and Kokoro, on-device)
 Voice packs are downloaded inside the app (Settings > Better voices) from the sherpa-onnx `tts-models` release and run offline through sherpa-onnx.
 - **Library:** `app/libs/sherpa-onnx-1.13.8.aar` (not committed, 47 MB). Fetch it with

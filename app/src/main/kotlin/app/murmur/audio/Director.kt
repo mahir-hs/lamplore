@@ -50,7 +50,8 @@ object Director {
         AmbienceKind.OCEAN to (words("sea", "ocean", "waves", "shore", "ship", "whale", "tide") to words("sail", "sailed", "boat", "harbor", "harbour", "fish", "water", "deep", "coast", "island")),
         AmbienceKind.STREAM to (words("river", "stream", "brook", "creek", "spring", "fountain") to words("flowing", "flowed", "ripple", "ripples", "bathe", "drank", "splash")),
         AmbienceKind.FOREST to (words("forest", "woods", "meadow", "garden", "orchard", "grove") to words("trees", "tree", "grass", "birds", "bird", "field", "fields", "flowers", "leaves", "path", "hill", "hills", "morning", "spring")),
-        AmbienceKind.NIGHT to (words("night", "midnight", "stars", "moon", "crickets", "dusk") to words("dark", "darkness", "evening", "sleep", "asleep", "sleeping", "bed", "dream", "dreamed", "rest", "resting", "quiet")),
+        // Sleeping alone does not make it night (the hare naps in the afternoon sun).
+        AmbienceKind.NIGHT to (words("night", "midnight", "stars", "moon", "moonlight", "crickets", "dusk", "nightfall") to words("dark", "darkness", "evening", "bed", "bedtime", "dream", "dreamed", "lantern", "candle")),
         AmbienceKind.FIRE to (words("fire", "flames", "flame", "campfire", "hearth", "lantern") to words("candle", "glow", "glowing", "warm", "warmth", "embers", "cooked", "kitchen", "cozy", "cosy", "light")),
         AmbienceKind.DESERT to (words("desert", "sand", "dunes", "caravan", "camel", "camels", "oasis") to words("hot", "hottest", "heat", "thirsty", "thirst", "dry", "sun", "blazing", "dust", "dusty", "parched")),
         AmbienceKind.CAVE to (words("cave", "cavern", "well", "prison", "dungeon", "tunnel", "belly") to words("underground", "echo", "echoed", "drip", "dripping", "pit", "stone", "walls", "swallowed", "trapped", "depths")),
