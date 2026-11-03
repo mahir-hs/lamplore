@@ -39,7 +39,7 @@ object PlayerHub {
         private set
     lateinit var sherpa: SherpaEngine
         private set
-    val ambience = Ambience()
+    private lateinit var bed: SoundBed
 
     private var exo: ExoPlayer? = null
     val player: ExoPlayer get() = exo ?: build()
@@ -59,6 +59,7 @@ object PlayerHub {
     var nowRole by mutableStateOf(Role.NARRATOR)
     var nowSpeed by mutableFloatStateOf(1f)
     var nowAmbience by mutableStateOf(AmbienceKind.NONE)
+    var nowMusic by mutableStateOf(MusicMood.NONE)
     var roleVoices by mutableStateOf<Map<Role, VoiceInfo>>(emptyMap())
 
     var previewStatus by mutableStateOf("")
@@ -79,6 +80,7 @@ object PlayerHub {
         PackManager.init(app)
         sherpa = SherpaEngine()
         engine = CompositeEngine(TtsGenerator(app), sherpa)
+        bed = SoundBed(app)
     }
 
     /** Reads a short sentence in the currently selected voice so you can hear it. */
@@ -190,12 +192,19 @@ object PlayerHub {
         nowRole = seg?.role ?: Role.NARRATOR
         nowSpeed = if (App.autoSpeed && seg != null) seg.speed else App.speed
         nowAmbience = if (App.autoSound && seg != null) seg.ambience else App.ambience
+        nowMusic = when {
+            !App.autoMusic -> App.music
+            seg == null -> plan?.music ?: MusicMood.NONE
+            seg.ambience == AmbienceKind.HEARTBEAT -> MusicMood.TENSION
+            else -> plan?.music ?: MusicMood.CALM
+        }
         exo?.playbackParameters = PlaybackParameters(nowSpeed, App.pitch)
         updateAmbience()
     }
 
     fun updateAmbience() {
-        ambience.update(nowAmbience, App.ambienceVolume, exo?.isPlaying == true)
+        if (!::bed.isInitialized) return
+        bed.update(nowAmbience, nowMusic, App.ambienceVolume, App.musicVolume, exo?.isPlaying == true)
     }
 
     private fun safe(s: String) = s.replace(Regex("[^A-Za-z0-9_-]"), "_")

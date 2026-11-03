@@ -12,7 +12,7 @@ A screen-free listening app that replaces doom-scrolling with stories: Islamic a
 - Language: English first, Bangla later
 - Content: public-domain seed library + user-submitted stories
 - Voices: TTS with selectable voices and tones; optional self-recorded narration
-- Background: the Story Director picks sound per scene; moving to real recorded CC0 ambience loops plus music (synthesized ambience was judged too crude, 2026-11-04)
+- Background: real field recordings (10 scenes) and 7 instrumental music beds bundled as Opus loops in `app/src/main/assets/sounds` (8.8 MB); the Director picks ambience per scene and one music mood per story (tension bed on tense scenes). Credits and licenses: `docs/licenses/SOUNDS.md`. Raw sources and ffmpeg live on D:, not in the repo.
 - Moderation: required from day one (family-safe tags, reporting, review queue)
 - No ads; subscription + creator tips
 

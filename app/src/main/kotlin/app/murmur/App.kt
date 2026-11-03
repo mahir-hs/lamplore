@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.murmur.audio.AmbienceKind
+import app.murmur.audio.MusicMood
 import app.murmur.audio.PlayerHub
 import app.murmur.data.Reflection
 import app.murmur.data.SeedStories
@@ -46,6 +47,9 @@ object App {
     var autoVoice by mutableStateOf(true)
     var autoSpeed by mutableStateOf(true)
     var autoSound by mutableStateOf(true)
+    var autoMusic by mutableStateOf(true)
+    var music by mutableStateOf(MusicMood.CALM)
+    var musicVolume by mutableFloatStateOf(0.22f)
     var todaySeconds by mutableIntStateOf(0)
     var doneToday by mutableStateOf(false)
     var goalText by mutableStateOf("")
@@ -67,6 +71,9 @@ object App {
         autoVoice = prefs.getBoolean("autoVoice", true)
         autoSpeed = prefs.getBoolean("autoSpeed", true)
         autoSound = prefs.getBoolean("autoSound", true)
+        autoMusic = prefs.getBoolean("autoMusic", true)
+        music = runCatching { MusicMood.valueOf(prefs.getString("music", "CALM") ?: "CALM") }.getOrDefault(MusicMood.CALM)
+        musicVolume = prefs.getFloat("musicVol", 0.22f)
 
         favorites.addAll(prefs.getStringSet("fav", emptySet()) ?: emptySet())
         completed.addAll(prefs.getStringSet("completed", emptySet()) ?: emptySet())
@@ -117,6 +124,9 @@ object App {
             .putBoolean("autoVoice", autoVoice)
             .putBoolean("autoSpeed", autoSpeed)
             .putBoolean("autoSound", autoSound)
+            .putBoolean("autoMusic", autoMusic)
+            .putString("music", music.name)
+            .putFloat("musicVol", musicVolume)
             .apply()
         PlayerHub.applyParams()
     }

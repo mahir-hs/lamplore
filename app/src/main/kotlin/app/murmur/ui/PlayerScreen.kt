@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.murmur.App
 import app.murmur.audio.AmbienceKind
+import app.murmur.audio.MusicMood
 import app.murmur.audio.PlayerHub
 import app.murmur.audio.Role
 
@@ -202,8 +203,9 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
 }
 
 private fun nowLine(): String {
-    val amb = PlayerHub.nowAmbience.let { if (it == AmbienceKind.NONE) "no background" else it.label.lowercase() }
-    return "${PlayerHub.nowRole.label()}, $amb, ${fmtSpeed(PlayerHub.nowSpeed)}"
+    val amb = PlayerHub.nowAmbience.let { if (it.file == null) null else it.label.lowercase() }
+    val mus = PlayerHub.nowMusic.let { if (it.file == null) null else "${it.label.lowercase()} music" }
+    return listOfNotNull(PlayerHub.nowRole.label(), amb, mus, fmtSpeed(PlayerHub.nowSpeed)).joinToString(", ")
 }
 
 /** Thin scrubber: tap or drag anywhere on the track to seek within the whole story. */
@@ -297,6 +299,22 @@ private fun TuneSheet() {
             onValueChange = { App.ambienceVolume = it; PlayerHub.updateAmbience() },
             onValueChangeFinished = { App.saveSettings() },
             valueRange = 0.05f..1f,
+            colors = SliderDefaults.colors(thumbColor = Ink.ember, activeTrackColor = Ink.ember, inactiveTrackColor = Ink.lampHigh),
+            modifier = Modifier.padding(top = 6.dp),
+        )
+
+        Heading("Music")
+        FlowRow(horizontalArrangement = spacedRow, verticalArrangement = spacedRow) {
+            Pill("Auto, by story", App.autoMusic) { App.autoMusic = true; App.saveSettings() }
+            MusicMood.entries.forEach { m ->
+                Pill(m.label, !App.autoMusic && App.music == m) { App.autoMusic = false; App.music = m; App.saveSettings() }
+            }
+        }
+        Slider(
+            value = App.musicVolume,
+            onValueChange = { App.musicVolume = it; PlayerHub.updateAmbience() },
+            onValueChangeFinished = { App.saveSettings() },
+            valueRange = 0f..0.8f,
             colors = SliderDefaults.colors(thumbColor = Ink.ember, activeTrackColor = Ink.ember, inactiveTrackColor = Ink.lampHigh),
             modifier = Modifier.padding(top = 6.dp),
         )

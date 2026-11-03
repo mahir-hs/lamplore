@@ -14,17 +14,17 @@ data class Segment(
     val ambience: AmbienceKind,
 )
 
-data class Plan(val segments: List<Segment>) {
+data class Plan(val segments: List<Segment>, val music: MusicMood = MusicMood.CALM) {
     val roles: List<Role> get() = segments.map { it.role }.distinct()
     val scenes: List<AmbienceKind> get() = segments.map { it.ambience }.distinct().filter { it != AmbienceKind.NONE }
     val minSpeed: Float get() = segments.minOf { it.speed }
     val maxSpeed: Float get() = segments.maxOf { it.speed }
 
     fun summary(): String {
-        val v = when (roles.size) { 1 -> "1 voice"; else -> "${roles.size} voices" }
+        val v = when (roles.size) { 1 -> "one voice"; else -> "${roles.size} voices" }
         val s = if (scenes.isEmpty()) "no background" else scenes.joinToString(", ") { it.label.lowercase() }
-        val sp = if (minSpeed == maxSpeed) "${fmt(minSpeed)}x" else "${fmt(minSpeed)}-${fmt(maxSpeed)}x"
-        return "$v · $s · $sp"
+        val sp = if (minSpeed == maxSpeed) "${fmt(minSpeed)}×" else "${fmt(minSpeed)}-${fmt(maxSpeed)}×"
+        return "${v.replaceFirstChar { it.uppercase() }}, $s, ${music.label.lowercase()} music, $sp."
     }
 
     private fun fmt(f: Float) = "%.2f".format(f).trimEnd('0').trimEnd('.')
@@ -67,6 +67,8 @@ object Director {
 
     private fun wordRx(list: List<String>) = Regex("\\b(" + list.joinToString("|") { Regex.escape(it) } + ")\\b", RegexOption.IGNORE_CASE)
     private val sceneRx: Map<AmbienceKind, Pair<Regex, Regex>> = scenes.mapValues { (_, p) -> wordRx(p.first) to wordRx(p.second) }
+    private val sadWords = words("wept", "weeping", "tears", "grief", "grieved", "died", "death", "lost", "alone", "sorrow", "mourned", "mourning", "farewell", "goodbye", "ashamed", "lonely", "sick", "weak", "pain")
+    private val sadRx = wordRx(sadWords)
     private val fastRx = wordRx(fastWords)
     private val slowRx = wordRx(slowWords)
     private val maleRx = wordRx(maleCues)
@@ -227,7 +229,24 @@ object Director {
                 for (chunk in splitLong(text, 900)) out += Segment(chunk, r, quoteSpeed, ambience)
             }
         }
-        return Plan(out)
+        return Plan(out, musicFor(story))
+    }
+
+    /** One music bed per story; tense segments switch to the tension bed at play time. */
+    private fun musicFor(story: Story): MusicMood {
+        val body = story.body
+        val tension = sceneScores(body)[AmbienceKind.HEARTBEAT] ?: 0
+        val sad = sadRx.findAll(body).count()
+        val fast = fastRx.findAll(body).count()
+        return when {
+            "sleep" in story.moods || story.category == Categories.CALM -> MusicMood.SLEEP
+            sad >= 4 -> MusicMood.SAD
+            tension >= 8 -> MusicMood.TENSION
+            fast >= 7 -> MusicMood.ADVENTURE
+            story.category == Categories.FAITH -> MusicMood.WARM
+            story.category == Categories.FABLES -> MusicMood.HOPEFUL
+            else -> MusicMood.CALM
+        }
     }
 
     private fun splitLong(text: String, max: Int): List<String> {

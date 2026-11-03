@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.murmur.App
 import app.murmur.audio.AmbienceKind
+import app.murmur.audio.MusicMood
 import app.murmur.audio.PackManager
 import app.murmur.audio.PlayerHub
 import app.murmur.audio.VoiceInfo
@@ -85,7 +86,8 @@ fun SettingsScreen() {
         Quiet("Murmur reads each story first and decides who speaks, how fast, and which background sound fits the scene. Turn any of these off to keep one fixed choice.")
         DirectorSwitch("Character voices", "Dialogue gets a different voice than the narrator, matched by gender.", App.autoVoice) { App.autoVoice = it; App.saveSettings() }
         DirectorSwitch("Pace", "Slower for calm and closing lines, quicker for action.", App.autoSpeed) { App.autoSpeed = it; App.saveSettings() }
-        DirectorSwitch("Background sound", "Rain, forest, night, fire and more, chosen from the scene and crossfaded.", App.autoSound) { App.autoSound = it; App.saveSettings() }
+        DirectorSwitch("Background sound", "Real recordings of rain, forest, night, fire and more, chosen from the scene and crossfaded.", App.autoSound) { App.autoSound = it; App.saveSettings() }
+        DirectorSwitch("Music", "A quiet instrumental bed matched to the story's mood; tense scenes get the tension bed.", App.autoMusic) { App.autoMusic = it; App.saveSettings() }
 
         if (!App.autoSpeed) {
             Heading("Fixed pace")
@@ -98,8 +100,16 @@ fun SettingsScreen() {
                 AmbienceKind.entries.forEach { k -> Pill(k.label, App.ambience == k) { App.ambience = k; App.saveSettings() } }
             }
         }
+        if (!App.autoMusic) {
+            Heading("Fixed music")
+            FlowRow(horizontalArrangement = spacedRow, verticalArrangement = spacedRow) {
+                MusicMood.entries.forEach { m -> Pill(m.label, App.music == m) { App.music = m; App.saveSettings() } }
+            }
+        }
         Heading("Background volume")
         Slider(value = App.ambienceVolume, onValueChange = { App.ambienceVolume = it; PlayerHub.updateAmbience() }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0.05f..1f, colors = sliderColors)
+        Heading("Music volume")
+        Slider(value = App.musicVolume, onValueChange = { App.musicVolume = it; PlayerHub.updateAmbience() }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0f..0.8f, colors = sliderColors)
 
         Heading("Faith")
         DirectorSwitch("Islamic touches", "Off by default. Adds an Islamic greeting and a remembrance line on the Home and Pause screens.", App.faithTouches) { App.faithTouches = it; App.saveSettings() }
@@ -111,6 +121,7 @@ fun SettingsScreen() {
 
         Heading("About")
         Quiet("Murmur 0.3. Fables retold from Aesop, original sleep stories, and simplified faith narratives that should be reviewed by a qualified scholar before any public release. Voices by Piper and Kokoro through sherpa-onnx. Type: Fraunces and Manrope (SIL Open Font License).")
+        Quiet("Music by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0. Field recordings by kvgarlic, stephan (pdsounds), udo noll, Jarrod Stanley, INNORECORDS, Evillan, Guillaume Capsowl Voisin, inchadney, daveincamas and eleanor.l.cooper (CC0, public domain or CC BY). Full credits: docs/licenses/SOUNDS.md in the repository.", Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(36.dp))
     }
 }
