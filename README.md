@@ -52,6 +52,14 @@ New books are not bundled. `data/RemoteContent.kt` downloads `catalog.json` (sto
 - **Picture book and subtitles:** stories with plates show them whole, turning over as the story moves on, with the sentence being read underneath (`PlayerHub.caption`). Menu: Hide/Show subtitles.
 - Not done yet: subscriptions, per-episode download queue ordering, playlists across books.
 
+## Features adapted from aniyomi/Yomi
+Chosen with the owner from the aniyomi-personal project (manga/anime specific parts left out).
+- **Memory:** History (`data/History.kt`, You > History): one entry per title with progress and status, Remove/Clear only hide, Restore brings back; permanent activity journal (`data/Activity.kt`); "Heard" marks on titles; Incognito; Backup and restore (`data/Backup.kt`, one JSON file, replace-on-restore so it never double-counts, optional automatic backups); Your taste (genres, authors, rising/fading, come-back-to) and weekday/hour charts.
+- **Library:** subscriptions and an Updates feed with a background check (`data/Subs.kt`, WorkManager), auto-download of new episodes, delete after finishing, Wi-Fi only, parallel downloads with pause/resume/reorder/retry (`data/Downloads.kt`), custom lists with sort, group, filter and saved views (`data/Lists.kt`).
+- **Finding things:** one search across your list, audiobooks and shows with exact matches first, suggestions, recent and saved searches checked in the background (`data/Searches.kt`), Discover shelves, What next, More like this, author pages.
+- **Player and app:** bookmarks with notes (`data/Bookmarks.kt`), podcast transcripts as subtitles (`data/Transcripts.kt`, timed WebVTT/SubRip/JSON), Midnight or AMOLED black and accent colours (`ui/Theme.kt` Looks), optional biometric app lock (`data/Lock.kt`), storage manager and diagnostics with the last crash (`data/Crash.kt`).
+- Not done: Add by RSS link / OPML import (left out by choice), a light theme (scenes and player are painted for the dark).
+
 ## Covers
 Every cover is the scene the story lives in plus a drawing of its subject (`ui/Motifs.kt`: tortoise and hare, lion, lighthouse, night train...). Seed stories name their motif and scene; your own stories get one guessed from the title and text (`Motif.guess`), falling back to an open book.
 

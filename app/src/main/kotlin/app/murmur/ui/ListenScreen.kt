@@ -130,15 +130,13 @@ private fun discoverShelves(): List<ShelfDef> {
 /** A short "what next" card: carry on, or a pick from your taste you have not heard. */
 @Composable
 private fun WhatNext(onOpenItem: (Item) -> Unit, onPlay: (Story) -> Unit) {
-    val going = Listen.recent.firstOrNull { App.progressFraction(it.id) > 0f && it.id !in App.completed }
     val tag = remember { app.murmur.data.Activity.byTag(365).firstOrNull()?.first }
     val pick by produceState<Item?>(null, tag) {
         if (tag != null) value = Listen.archive("$L AND subject:\"${tag.lowercase()}\"").firstOrNull { !History.seen(it.key) }
     }
-    if (going == null && pick == null) return
+    if (pick == null) return
     Column(Modifier.padding(horizontal = 22.dp).padding(top = 6.dp)) {
         Heading("What next?")
-        if (going != null) RecentRow(going) { onPlay(going) }
         pick?.let { p ->
             Quiet("Because you like $tag", Modifier.padding(top = 4.dp))
             ItemRow(p) { onOpenItem(p) }
