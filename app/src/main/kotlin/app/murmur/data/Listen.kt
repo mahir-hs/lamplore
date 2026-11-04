@@ -47,7 +47,7 @@ object Listen {
     fun isStarred(key: String) = starred.any { it.key == key }
 
     fun toggleStar(item: Item) {
-        if (isStarred(item.key)) starred.removeAll { it.key == item.key } else starred.add(0, item)
+        if (isStarred(item.key)) { starred.removeAll { it.key == item.key }; Lists.forget(item.key) } else starred.add(0, item)
         val a = JSONArray()
         starred.forEach { a.put(JSONObject().put("k", it.key).put("t", it.title).put("a", it.author).put("i", it.art).put("r", it.ref).put("s", it.isShow)) }
         prefs.edit().putString("starred", a.toString()).apply()
@@ -66,29 +66,29 @@ object Listen {
 
     fun decode(json: String): List<Story> {
         val a = JSONArray(json)
-        return (0 until a.length()).map { i ->
-            val o = a.getJSONObject(i)
-            val t = o.getJSONArray("tracks")
-            stream(
-                o.getString("id"), o.getString("title"), o.getString("author"), o.getString("category"), o.optString("summary"),
-                (0 until t.length()).map { k -> t.getJSONObject(k).let { Track(it.getString("t"), it.getString("u"), it.getInt("s")) } },
-                o.optString("art"),
-                o.optJSONArray("tags")?.let { g -> (0 until g.length()).map { g.getString(it) } } ?: emptyList(),
-            )
-        }
+        return (0 until a.length()).map { storyFromJson(a.getJSONObject(it)) }
     }
 
     fun encode(list: List<Story>): String {
         val a = JSONArray()
-        list.forEach { r ->
-            a.put(
-                JSONObject().put("id", r.id).put("title", r.title).put("author", r.author)
-                    .put("category", r.category).put("summary", r.summary).put("art", r.art).put("tags", JSONArray(r.tags))
-                    .put("tracks", JSONArray().also { ta -> r.tracks.forEach { ta.put(JSONObject().put("t", it.title).put("u", it.url).put("s", it.seconds)) } }),
-            )
-        }
+        list.forEach { a.put(storyToJson(it)) }
         return a.toString()
     }
+
+    fun storyFromJson(o: JSONObject): Story {
+        val t = o.getJSONArray("tracks")
+        return stream(
+            o.getString("id"), o.getString("title"), o.getString("author"), o.getString("category"), o.optString("summary"),
+            (0 until t.length()).map { k -> t.getJSONObject(k).let { Track(it.getString("t"), it.getString("u"), it.getInt("s")) } },
+            o.optString("art"),
+            o.optJSONArray("tags")?.let { g -> (0 until g.length()).map { g.getString(it) } } ?: emptyList(),
+        )
+    }
+
+    fun storyToJson(r: Story): JSONObject =
+        JSONObject().put("id", r.id).put("title", r.title).put("author", r.author)
+            .put("category", r.category).put("summary", r.summary).put("art", r.art).put("tags", JSONArray(r.tags))
+            .put("tracks", JSONArray().also { ta -> r.tracks.forEach { ta.put(JSONObject().put("t", it.title).put("u", it.url).put("s", it.seconds)) } })
 
     /** Remember a stream that was just started (moves it to the top). */
     fun remember(s: Story) {

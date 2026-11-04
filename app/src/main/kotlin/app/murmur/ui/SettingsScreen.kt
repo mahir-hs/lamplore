@@ -55,6 +55,7 @@ private enum class Page(val title: String) {
     HISTORY("History"),
     TASTE("Your taste"),
     BACKUP("Backup and restore"),
+    DOWNLOADS("Downloads and updates"),
     VOICES("Voices"),
     READING("How stories are read"),
     PHONE("Your phone and AI"),
@@ -76,6 +77,7 @@ fun SettingsScreen(onAbout: () -> Unit, onPlay: (app.murmur.data.Story) -> Unit 
         Page.HISTORY -> PageFrame(current.title, { page = null }) { HistoryPage(onPlay) }
         Page.TASTE -> PageFrame(current.title, { page = null }) { TastePage() }
         Page.BACKUP -> PageFrame(current.title, { page = null }) { BackupPage() }
+        Page.DOWNLOADS -> PageFrame(current.title, { page = null }) { DownloadSettingsPage() }
         Page.VOICES -> PageFrame(current.title, { page = null }) { VoicesPage() }
         Page.READING -> PageFrame(current.title, { page = null }) { ReadingPage() }
         Page.PHONE -> PageFrame(current.title, { page = null }) { PhoneCheckSection() }
@@ -117,6 +119,7 @@ private fun Hub(onOpen: (Page) -> Unit, onAbout: () -> Unit) {
         HubRow("Your phone and AI", aiSummary()) { onOpen(Page.PHONE) }
         HubRow("Storage and books", storageSummary()) { onOpen(Page.STORAGE) }
         if (App.reflections.isNotEmpty()) HubRow("Your notes", "${App.reflections.size} saved") { onOpen(Page.NOTES) }
+        HubRow("Downloads and updates", "${app.murmur.data.Downloads.saved.size} saved, ${app.murmur.data.Subs.shows.size} followed" + if (app.murmur.data.Downloads.wifiOnly) ", Wi-Fi only" else "") { onOpen(Page.DOWNLOADS) }
         HubRow("Backup and restore", if (app.murmur.data.Backup.intervalDays > 0) "Automatic backup on" else "Save everything to a file") { onOpen(Page.BACKUP) }
         HubRow("About and credits", "Version 0.4", onAbout)
         Spacer(Modifier.height(36.dp))
@@ -255,6 +258,28 @@ private fun StoragePage() {
     var dl by remember { mutableLongStateOf(app.murmur.data.Downloads.bytes()) }
     Quiet("${app.murmur.data.Downloads.saved.size} saved for offline, ${"%.0f".format(dl / 1_048_576.0)} MB. Remove single items from the Listen tab.")
     TextButton(onClick = { app.murmur.data.Downloads.removeAll(); dl = 0L }) { Text("Remove all downloads", color = Ink.ember) }
+}
+
+@Composable
+private fun DownloadSettingsPage() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    Heading("Downloads")
+    DirectorSwitch("Wi-Fi only", "Downloads wait until the phone is on Wi-Fi (or any unmetered network).", app.murmur.data.Downloads.wifiOnly) { app.murmur.data.Downloads.changeWifiOnly(it) }
+    DirectorSwitch("Delete after finishing", "A downloaded title is removed from the phone when you listen to the end.", app.murmur.data.Downloads.autoDelete) { app.murmur.data.Downloads.changeAutoDelete(it) }
+    Quiet("Downloads at the same time", Modifier.padding(top = 14.dp))
+    FlowRow {
+        listOf(1, 2, 3).forEach { n -> Pill("$n", app.murmur.data.Downloads.maxParallel == n) { app.murmur.data.Downloads.changeMaxParallel(n) } }
+    }
+    Quiet("Two is a good balance. Three is faster on a good connection and uses more battery.", Modifier.padding(top = 2.dp))
+
+    Heading("New episodes")
+    Quiet("Murmur checks the shows you follow in the background and tells you when there is something new. Turn on Auto-download on a show to fetch its new episodes for you.")
+    FlowRow {
+        listOf(0 to "Off", 6 to "Every 6 hours", 12 to "Every 12 hours", 24 to "Daily").forEach { (h, l) ->
+            Pill(l, app.murmur.data.Subs.intervalHours == h) { app.murmur.data.Subs.setInterval(ctx, h) }
+        }
+    }
+    Quiet("Android decides the exact time to save battery, so a check can be a little late.", Modifier.padding(top = 2.dp))
 }
 
 @Composable

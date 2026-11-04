@@ -26,6 +26,7 @@ import app.murmur.data.Downloads
 import app.murmur.data.History
 import app.murmur.data.Listen
 import app.murmur.data.Story
+import app.murmur.data.Subs
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -201,7 +202,7 @@ object PlayerHub {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED && generating) status = "Preparing next part..."
                 if (state == Player.STATE_ENDED && !generating) {
-                    current?.let { App.markCompleted(it.id) }
+                    current?.let { App.markCompleted(it.id); Downloads.onFinished(it) }
                     finished = true
                     status = "Finished"
                     updateAmbience()
@@ -312,6 +313,7 @@ object PlayerHub {
         p.playWhenReady = true
         status = "Loading..."
         Listen.remember(story)
+        Subs.markRead(story.id)
     }
 
     /** Start a recorded book at a chosen chapter. */

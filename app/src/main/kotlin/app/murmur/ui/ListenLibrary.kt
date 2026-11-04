@@ -18,6 +18,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.background
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.clip
+import app.murmur.data.History
+import app.murmur.data.Lists
+import app.murmur.data.SavedView
+import app.murmur.data.Subs
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,35 +58,225 @@ private fun mb(bytes: Long) = "%.0f MB".format(bytes / 1_048_576.0)
 
 // ---- My list -----------------------------------------------------------------------------------------
 
-/** Starred books and shows, what you are partway through, and what you have finished. */
-fun LazyListScope.myListContent(onOpenItem: (Item) -> Unit, onPlay: (Story) -> Unit) {
-    item {
-        Quiet("Star an audiobook or a show to keep it here.", Modifier.padding(horizontal = 22.dp, vertical = 4.dp))
+/** How My list is filtered, sorted and grouped. */
+class MyListState {
+    var list by mutableStateOf<String?>(null)
+    var filter by mutableStateOf("all")
+    var sort by mutableStateOf("added")
+    var group by mutableStateOf("none")
+}
+
+private val filterLabels = listOf("all" to "Everything", "books" to "Audiobooks", "shows" to "Shows", "unfinished" to "Unfinished", "downloaded" to "Downloaded")
+private val sortLabels = listOf("added" to "Recently added", "title" to "Title A to Z", "author" to "Author A to Z", "played" to "Last listened")
+private val groupLabels = listOf("none" to "No grouping", "author" to "By author", "list" to "By list")
+
+/** A small text button that opens a menu of choices. */
+@Composable
+private fun Menu(label: String, choices: List<Pair<String, () -> Unit>>) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Text(
+            "$label  ▾", style = MaterialTheme.typography.labelLarge, color = Ink.ember,
+            modifier = Modifier.bounceClick("$label menu") { open = true }.padding(horizontal = 6.dp, vertical = 10.dp),
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = Ink.lampHigh) {
+            choices.forEach { (t, f) -> DropdownMenuItem(text = { Text(t) }, onClick = { open = false; f() }) }
+        }
     }
-    if (Listen.starred.isNotEmpty()) {
-        item { Heading("Starred", Modifier.padding(horizontal = 20.dp)) }
-        items(Listen.starred.toList(), key = { "st_" + it.key }) { it0 ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { ItemRow(it0) { onOpenItem(it0) } }
-                Text(
-                    "Remove", style = MaterialTheme.typography.labelMedium, color = Ink.dusk,
-                    modifier = Modifier.bounceClick("Remove ${it0.title} from my list") { Listen.toggleStar(it0) }.padding(horizontal = 16.dp, vertical = 12.dp),
+}
+
+/** Ask for one line of text. */
+@Composable
+private fun NameDialog(title: String, hint: String, onDone: (String) -> Unit, onCancel: () -> Unit) {
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(title) },
+        text = { OutlinedTextField(value = text, onValueChange = { text = it }, placeholder = { Text(hint) }, singleLine = true) },
+        confirmButton = { TextButton(onClick = { if (text.isNotBlank()) onDone(text.trim()) }) { Text("Save", color = Ink.ember) } },
+        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel", color = Ink.dusk) } },
+        containerColor = Ink.lamp,
+    )
+}
+
+/** Starred books and shows in your own lists, the shows you follow, and what you are partway through or finished. */
+fun LazyListScope.myListContent(st: MyListState, onOpenItem: (Item) -> Unit, onPlay: (Story) -> Unit) {
+    item {
+        var newList by remember { mutableStateOf(false) }
+        var saveView by remember { mutableStateOf(false) }
+        Column(Modifier.padding(horizontal = 22.dp)) {
+            FlowRow(horizontalArrangement = spacedRow) {
+                Pill("Everything", st.list == null) { st.list = null }
+                Lists.names.forEach { n -> Pill(n, st.list == n) { st.list = if (st.list == n) null else n } }
+                Pill("+ New list", false) { newList = true }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Menu(filterLabels.first { it.first == st.filter }.second, filterLabels.map { (k, l) -> l to { st.filter = k } })
+                Menu(sortLabels.first { it.first == st.sort }.second, sortLabels.map { (k, l) -> l to { st.sort = k } })
+                Menu(groupLabels.first { it.first == st.group }.second, groupLabels.map { (k, l) -> l to { st.group = k } })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Menu(
+                    "Views",
+                    Lists.views.map { v -> v.name to { st.list = v.list.ifBlank { null }; st.filter = v.filter; st.sort = v.sort; st.group = v.group } } +
+                        listOf("Save this view..." to { saveView = true }),
+                )
+                if (Lists.views.isNotEmpty()) Menu("Delete view", Lists.views.map { v -> v.name to { Lists.deleteView(v.name) } })
+                val sel = st.list
+                if (sel != null) Text(
+                    "Delete list \"$sel\"", style = MaterialTheme.typography.labelMedium, color = Ink.dusk,
+                    modifier = Modifier.bounceClick("Delete list $sel") { Lists.delete(sel); st.list = null }.padding(8.dp),
                 )
             }
         }
+        if (newList) NameDialog("New list", "For example: Sleep", { Lists.create(it); st.list = it; newList = false }, { newList = false })
+        if (saveView) NameDialog("Save this view", "Name", {
+            Lists.saveView(SavedView(it, st.filter, st.sort, st.group, st.list ?: ""))
+            saveView = false
+        }, { saveView = false })
+    }
+
+    val base = st.list?.let { l -> Listen.starred.filter { it.key in Lists.keys(l) } } ?: Listen.starred.toList()
+    val filtered = base.filter {
+        when (st.filter) {
+            "books" -> !it.isShow
+            "shows" -> it.isShow
+            "unfinished" -> it.key !in App.completed
+            "downloaded" -> Downloads.isSaved(it.key)
+            else -> true
+        }
+    }
+    val sorted = when (st.sort) {
+        "title" -> filtered.sortedBy { it.title.lowercase() }
+        "author" -> filtered.sortedBy { it.author.lowercase() }
+        "played" -> filtered.sortedByDescending { i -> History.items.firstOrNull { it.id == i.key }?.lastAt ?: 0L }
+        else -> filtered
+    }
+    if (sorted.isEmpty()) {
+        item {
+            Quiet(
+                if (Listen.starred.isEmpty()) "Nothing here yet. Open any audiobook or show and tap \"Add to my list\"." else "Nothing matches this view.",
+                Modifier.padding(horizontal = 22.dp, vertical = 10.dp),
+            )
+        }
+    } else {
+        val groups: List<Pair<String?, List<Item>>> = when (st.group) {
+            "author" -> sorted.groupBy { it.author.ifBlank { "Unknown" } }.toSortedMap(compareBy { it.lowercase() }).map { (k, v) -> k to v }
+            "list" -> sorted.groupBy { i -> Lists.names.firstOrNull { Lists.isIn(it, i.key) } ?: "Not in a list" }.toSortedMap(compareBy { it.lowercase() }).map { (k, v) -> k to v }
+            else -> listOf(null to sorted)
+        }
+        groups.forEach { (heading, rows) ->
+            if (heading != null) item(key = "gh_$heading") { Heading(heading, Modifier.padding(horizontal = 20.dp)) }
+            items(rows, key = { "st_${heading}_${it.key}" }) { it0 ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { ItemRow(it0) { onOpenItem(it0) } }
+                    Text(
+                        "Remove", style = MaterialTheme.typography.labelMedium, color = Ink.dusk,
+                        modifier = Modifier.bounceClick("Remove ${it0.title} from my list") { Listen.toggleStar(it0) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+            }
+        }
+    }
+
+    if (Subs.shows.isNotEmpty() && st.list == null) {
+        item { Heading("Following", Modifier.padding(horizontal = 20.dp)) }
+        items(Subs.shows.toList(), key = { "fo_" + it.item.key }) { sub ->
+            Box(Modifier.fillMaxWidth()) { ItemRow(sub.item) { onOpenItem(sub.item) } }
+        }
     }
     val going = Listen.recent.filter { App.progressFraction(it.id) > 0f && it.id !in App.completed }
-    if (going.isNotEmpty()) {
+    if (going.isNotEmpty() && st.list == null) {
         item { Heading("In progress", Modifier.padding(horizontal = 20.dp)) }
         items(going, key = { "ip_" + it.id }) { RecentRow(it) { onPlay(it) } }
     }
     val done = Listen.recent.filter { it.id in App.completed }
-    if (done.isNotEmpty()) {
+    if (done.isNotEmpty() && st.list == null) {
         item { Heading("Finished", Modifier.padding(horizontal = 20.dp)) }
         items(done, key = { "fin_" + it.id }) { RecentRow(it) { onPlay(it) } }
     }
-    if (Listen.starred.isEmpty() && going.isEmpty() && done.isEmpty()) {
-        item { Quiet("Nothing here yet. Open any audiobook or show and tap \"Add to my list\".", Modifier.padding(22.dp)) }
+}
+
+// ---- Updates -----------------------------------------------------------------------------------------
+
+/** New episodes of the shows you follow, with a check button, errors and the shows themselves. */
+fun LazyListScope.updatesContent(onOpenItem: (Item) -> Unit, onPlay: (Story) -> Unit) {
+    item {
+        val scope = rememberCoroutineScope()
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        var msg by remember { mutableStateOf("") }
+        Column(Modifier.padding(horizontal = 22.dp, vertical = 4.dp)) {
+            if (Subs.shows.isEmpty()) {
+                Quiet("Follow a show (open it and tap Follow) and new episodes appear here, checked in the background.")
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Quiet(
+                            "Following ${Subs.shows.size} show${if (Subs.shows.size == 1) "" else "s"}. " +
+                                if (Subs.lastRun > 0) "Last checked ${java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale.getDefault()).format(java.util.Date(Subs.lastRun))}." else "Not checked yet.",
+                        )
+                    }
+                    GhostButton(if (Subs.checking) "Checking..." else "Check now", {
+                        if (!Subs.checking) scope.launch { val n = Subs.checkAll(ctx, notify = false); msg = if (n == 0) "No new episodes." else "$n new." }
+                    })
+                }
+                if (msg.isNotBlank()) Quiet(msg, Modifier.padding(top = 4.dp))
+            }
+        }
+    }
+    if (Subs.errors.isNotEmpty()) {
+        item { Heading("Could not update", Modifier.padding(horizontal = 20.dp)) }
+        items(Subs.errors.keys.toList(), key = { "er_$it" }) { key ->
+            val sub = Subs.shows.firstOrNull { it.item.key == key }
+            if (sub != null) Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(sub.item.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Quiet(Subs.errors[key] ?: "")
+                }
+                val scope = rememberCoroutineScope()
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                Text("Retry", style = MaterialTheme.typography.labelLarge, color = Ink.ember, modifier = Modifier.bounceClick("Retry ${sub.item.title}") { scope.launch { Subs.checkAll(ctx, notify = false) } }.padding(12.dp))
+            }
+        }
+    }
+    val ups = Subs.updates.toList()
+    if (ups.isNotEmpty()) {
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Heading("New episodes", Modifier.weight(1f))
+                if (Subs.unread() > 0) Text("Mark all read", style = MaterialTheme.typography.labelLarge, color = Ink.ember, modifier = Modifier.bounceClick("Mark all read") { Subs.markAllRead() }.padding(8.dp))
+            }
+        }
+        items(ups, key = { "up_" + it.story.id }) { u ->
+            Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 6.dp)) {
+                Column(Modifier.fillMaxWidth().bounceClick("Play ${u.story.title}") { onPlay(u.story) }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (!u.read) Box(Modifier.size(8.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Ink.ember))
+                        if (!u.read) Spacer(Modifier.width(8.dp))
+                        Text(u.story.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                    Quiet(u.showTitle + (u.story.tracks.firstOrNull()?.seconds?.let { if (it > 0) "  ·  ${fmtLen(it)}" else "" } ?: ""))
+                }
+                DownloadControl(u.story, compact = true)
+            }
+        }
+        item { Text("Clear list", style = MaterialTheme.typography.labelLarge, color = Ink.dusk, modifier = Modifier.bounceClick("Clear updates") { Subs.clearUpdates() }.padding(horizontal = 22.dp, vertical = 12.dp)) }
+    } else if (Subs.shows.isNotEmpty()) {
+        item { Quiet("No new episodes yet.", Modifier.padding(horizontal = 22.dp, vertical = 8.dp)) }
+    }
+    if (Subs.shows.isNotEmpty()) {
+        item { Heading("Shows you follow", Modifier.padding(horizontal = 20.dp)) }
+        items(Subs.shows.toList(), key = { "fs_" + it.item.key }) { sub ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { ItemRow(sub.item) { onOpenItem(sub.item) } }
+                Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 12.dp)) {
+                    Text(if (sub.autoDownload) "Auto-download on" else "Auto-download off", style = MaterialTheme.typography.labelSmall, color = if (sub.autoDownload) Ink.moss else Ink.dusk,
+                        modifier = Modifier.bounceClick("Toggle auto-download for ${sub.item.title}") { Subs.setAutoDownload(sub.item.key, !sub.autoDownload) }.padding(6.dp))
+                    Text("Unfollow", style = MaterialTheme.typography.labelSmall, color = Ink.dusk,
+                        modifier = Modifier.bounceClick("Unfollow ${sub.item.title}") { Subs.unsubscribe(sub.item.key) }.padding(6.dp))
+                }
+            }
+        }
     }
 }
 
@@ -89,27 +292,54 @@ fun LazyListScope.downloadsContent(onOpenItem: (Item) -> Unit, onPlay: (Story) -
             )
         }
     }
-    val queue = Downloads.queued.toList()
-    if (queue.isNotEmpty()) {
-        item { Heading("Downloading", Modifier.padding(horizontal = 20.dp)) }
-        items(queue, key = { "q_" + it }) { id ->
+    if (Downloads.queued.isNotEmpty()) {
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Heading("Downloading", Modifier.weight(1f))
+                val allPaused = Downloads.queued.all { Downloads.isPaused(it) }
+                Text(
+                    if (allPaused) "Resume all" else "Pause all", style = MaterialTheme.typography.labelLarge, color = Ink.ember,
+                    modifier = Modifier.bounceClick(if (allPaused) "Resume all downloads" else "Pause all downloads") { if (allPaused) Downloads.resumeAll() else Downloads.pauseAll() }.padding(8.dp),
+                )
+            }
+            if (Downloads.waitingWifi) Quiet("Waiting for Wi-Fi. You can change this in You > Downloads and updates.", Modifier.padding(horizontal = 22.dp))
+        }
+        items(Downloads.queued.toList(), key = { "q_" + it }) { id ->
             val s = Downloads.storyOf(id)
             if (s != null) {
                 val p = Downloads.progress[id] ?: 0f
+                val paused = Downloads.isPaused(id)
                 Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(s.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            val ch = Downloads.activeChapter[id]
-                            Quiet("${(p * 100).toInt()}%" + (if (ch != null && s.tracks.size > 1) "  ·  chapter ${ch + 1}" else "") + Downloads.speedText(id).let { if (it.isBlank()) "" else "  ·  $it" })
-                        }
-                        Text(
-                            "Cancel", style = MaterialTheme.typography.labelMedium, color = Ink.dusk,
-                            modifier = Modifier.bounceClick("Cancel download of ${s.title}") { Downloads.cancel(id) }.padding(12.dp),
-                        )
-                    }
+                    Text(s.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val ch = Downloads.activeChapter[id]
+                    Quiet(
+                        if (paused) "Paused at ${(p * 100).toInt()}%"
+                        else "${(p * 100).toInt()}%" + (if (ch != null && s.tracks.size > 1) "  ·  chapter ${ch + 1}" else "") + Downloads.speedText(id).let { if (it.isBlank()) "" else "  ·  $it" },
+                    )
                     ThinBar(p, Modifier.padding(top = 6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (paused) "Resume" else "Pause", style = MaterialTheme.typography.labelMedium, color = Ink.ember,
+                            modifier = Modifier.bounceClick(if (paused) "Resume ${s.title}" else "Pause ${s.title}") { if (paused) Downloads.resume(id) else Downloads.pause(id) }.padding(end = 14.dp, top = 10.dp, bottom = 10.dp))
+                        Text("Up", style = MaterialTheme.typography.labelMedium, color = Ink.dusk, modifier = Modifier.bounceClick("Move ${s.title} up") { Downloads.move(id, -1) }.padding(end = 14.dp, top = 10.dp, bottom = 10.dp))
+                        Text("Down", style = MaterialTheme.typography.labelMedium, color = Ink.dusk, modifier = Modifier.bounceClick("Move ${s.title} down") { Downloads.move(id, 1) }.padding(end = 14.dp, top = 10.dp, bottom = 10.dp))
+                        Spacer(Modifier.weight(1f))
+                        Text("Cancel", style = MaterialTheme.typography.labelMedium, color = Ink.dusk, modifier = Modifier.bounceClick("Cancel download of ${s.title}") { Downloads.cancel(id) }.padding(vertical = 10.dp))
+                    }
                 }
+            }
+        }
+    }
+    if (Downloads.failed.isNotEmpty()) {
+        item { Heading("Stopped", Modifier.padding(horizontal = 20.dp)) }
+        items(Downloads.failed.keys.toList(), key = { "fl_$it" }) { id ->
+            val s = Downloads.failed[id]
+            if (s != null) Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(s.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Quiet(Downloads.errors[id] ?: "Stopped.")
+                }
+                Text("Retry", style = MaterialTheme.typography.labelLarge, color = Ink.ember, modifier = Modifier.bounceClick("Retry ${s.title}") { Downloads.retry(id) }.padding(12.dp))
+                Text("Dismiss", style = MaterialTheme.typography.labelLarge, color = Ink.dusk, modifier = Modifier.bounceClick("Dismiss ${s.title}") { Downloads.dismissFailed(id) }.padding(8.dp))
             }
         }
     }
@@ -174,14 +404,33 @@ fun Detail(item: Item, onOpen: (Story) -> Unit, onBack: () -> Unit) {
                         }
                     }
                 }
+                val scope = rememberCoroutineScope()
+                var listsMenu by remember { mutableStateOf(false) }
+                var newList by remember { mutableStateOf(false) }
                 FlowRow(horizontalArrangement = spacedRow, modifier = Modifier.padding(top = 8.dp)) {
                     Pill(if (starred) "In my list" else "Add to my list", starred) { Listen.toggleStar(item) }
+                    Box {
+                        Pill("Lists", Lists.names.any { Lists.isIn(it, item.key) }) { listsMenu = true }
+                        DropdownMenu(expanded = listsMenu, onDismissRequest = { listsMenu = false }, containerColor = Ink.lampHigh) {
+                            Lists.names.forEach { n -> DropdownMenuItem(text = { Text((if (Lists.isIn(n, item.key)) "✓  " else "     ") + n) }, onClick = { Lists.toggle(n, item) }) }
+                            DropdownMenuItem(text = { Text("New list...") }, onClick = { listsMenu = false; newList = true })
+                        }
+                    }
+                    if (item.isShow) {
+                        val following = Subs.isSubscribed(item.key)
+                        Pill(if (following) "Following" else "Follow", following) { if (following) Subs.unsubscribe(item.key) else scope.launch { Subs.subscribe(item) } }
+                        if (following) {
+                            val auto = Subs.shows.firstOrNull { it.item.key == item.key }?.autoDownload == true
+                            Pill("Auto-download", auto) { Subs.setAutoDownload(item.key, !auto) }
+                        }
+                    }
                     val b = book
                     if (b != null) {
                         val fin = b.id in App.completed
                         Pill(if (fin) "Finished" else "Mark finished", fin) { if (fin) App.unmarkCompleted(b.id) else App.markCompleted(b.id) }
                     }
                 }
+                if (newList) NameDialog("New list", "For example: Sleep", { Lists.create(it); Lists.toggle(it, item); newList = false }, { newList = false })
                 val b = book
                 if (b != null) {
                     val resume = App.hasProgress(b.id)

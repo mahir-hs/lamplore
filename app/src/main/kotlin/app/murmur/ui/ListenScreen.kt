@@ -61,7 +61,7 @@ import app.murmur.data.Listen
 import app.murmur.data.Story
 import kotlinx.coroutines.delay
 
-private enum class Kind { BOOKS, PODCASTS, MYLIST, DOWNLOADS }
+private enum class Kind { BOOKS, PODCASTS, UPDATES, MYLIST, DOWNLOADS }
 
 /** A shelf: a short live preview for the row, and pages for the "See all" grid. */
 private class ShelfDef(val title: String, val preview: suspend () -> List<Item>, val page: suspend (Int) -> List<Item>)
@@ -119,6 +119,7 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
     var query by remember { mutableStateOf("") }
     var detail by remember { mutableStateOf<Item?>(null) }
     var seeAll by remember { mutableStateOf<ShelfDef?>(null) }
+    val myState = remember { MyListState() }
     BackHandler(enabled = detail != null || seeAll != null) { if (detail != null) detail = null else seeAll = null }
 
     val d = detail
@@ -150,6 +151,7 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
                 FlowRow(horizontalArrangement = spacedRow, modifier = Modifier.padding(top = 10.dp)) {
                     Pill("Audiobooks", kind == Kind.BOOKS) { kind = Kind.BOOKS }
                     Pill("Podcasts", kind == Kind.PODCASTS) { kind = Kind.PODCASTS }
+                    Pill(if (app.murmur.data.Subs.unread() > 0) "Updates (${app.murmur.data.Subs.unread()})" else "Updates", kind == Kind.UPDATES) { kind = Kind.UPDATES }
                     Pill("My list", kind == Kind.MYLIST) { kind = Kind.MYLIST }
                     Pill("Downloads", kind == Kind.DOWNLOADS) { kind = Kind.DOWNLOADS }
                 }
@@ -165,8 +167,10 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
                 )
             }
         }
-        if (kind == Kind.MYLIST) {
-            myListContent(onOpenItem = { detail = it }, onPlay = onOpen)
+        if (kind == Kind.UPDATES) {
+            updatesContent(onOpenItem = { detail = it }, onPlay = onOpen)
+        } else if (kind == Kind.MYLIST) {
+            myListContent(myState, onOpenItem = { detail = it }, onPlay = onOpen)
         } else if (kind == Kind.DOWNLOADS) {
             downloadsContent(onOpenItem = { detail = it }, onPlay = onOpen)
         } else if (q.length >= 2) {
