@@ -48,6 +48,9 @@ dependencies {
     implementation(files("libs/sherpa-onnx-1.13.8.aar"))
     implementation("org.apache.commons:commons-compress:1.28.0")
 
+    // On-device language model for the AI Director (arm64 only; guarded at run time by ai/DeviceCheck).
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.0")
+
     val media3 = "1.11.1"
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-session:$media3")

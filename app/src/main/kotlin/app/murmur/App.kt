@@ -102,6 +102,7 @@ object App {
         stories.addAll(SeedStories.all)
         stories.addAll(loadUserStories())
         app.murmur.data.RemoteContent.refresh()
+        app.murmur.ai.AiModels.init(context)
 
         goalText = prefs.getString("goalText", "") ?: ""
         val week = prefs.getLong("goalWeek", 0L)

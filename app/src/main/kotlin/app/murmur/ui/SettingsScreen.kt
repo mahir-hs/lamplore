@@ -3,6 +3,15 @@
 package app.murmur.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import app.murmur.ai.AiModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.Icons
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -41,109 +50,201 @@ import app.murmur.audio.VoiceInfo
 import app.murmur.audio.VoicePack
 import app.murmur.audio.VoicePacks
 
+private enum class Page(val title: String) {
+    VOICES("Voices"),
+    READING("How stories are read"),
+    PHONE("Your phone and AI"),
+    STORAGE("Storage and books"),
+    NOTES("Your notes"),
+}
+
+/**
+ * You. A short hub: your week, then one row per area. Each area is its own page, so nothing here is a long scroll.
+ */
 @Composable
 fun SettingsScreen(onAbout: () -> Unit) {
+    var page by rememberSaveable { mutableStateOf<String?>(null) }
+    BackHandler(enabled = page != null) { page = null }
+    val current = page?.let { name -> Page.entries.firstOrNull { it.name == name } }
+    when (current) {
+        null -> Hub(onOpen = { page = it.name }, onAbout = onAbout)
+        Page.VOICES -> PageFrame(current.title, { page = null }) { VoicesPage() }
+        Page.READING -> PageFrame(current.title, { page = null }) { ReadingPage() }
+        Page.PHONE -> PageFrame(current.title, { page = null }) { PhoneCheckSection() }
+        Page.STORAGE -> PageFrame(current.title, { page = null }) { StoragePage() }
+        Page.NOTES -> PageFrame(current.title, { page = null }) { NotesPage() }
+    }
+}
+
+@Composable
+private fun PageFrame(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+        TextButton(onClick = onBack, modifier = Modifier.padding(top = 6.dp)) { Text("Back", color = Ink.dusk) }
+        Text(title, style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 6.dp))
+        content()
+        Spacer(Modifier.height(36.dp))
+    }
+}
+
+@Composable
+private fun Hub(onOpen: (Page) -> Unit, onAbout: () -> Unit) {
+    val nights = App.streak()
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+        Text("You", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
+        Quiet(
+            "${App.todaySeconds / 60} minutes today, $nights night${if (nights == 1) "" else "s"} in a row.",
+            Modifier.padding(top = 6.dp),
+        )
+        GoalBlock()
+
+        Heading("Settings")
+        HubRow("Voices", narratorSummary()) { onOpen(Page.VOICES) }
+        HubRow("How stories are read", readingSummary()) { onOpen(Page.READING) }
+        HubRow("Your phone and AI", aiSummary()) { onOpen(Page.PHONE) }
+        HubRow("Storage and books", storageSummary()) { onOpen(Page.STORAGE) }
+        if (App.reflections.isNotEmpty()) HubRow("Your notes", "${App.reflections.size} saved") { onOpen(Page.NOTES) }
+        HubRow("About and credits", "Version 0.4", onAbout)
+        Spacer(Modifier.height(36.dp))
+    }
+}
+
+/** One line in the hub: what it is, what it is set to now, and a chevron. */
+@Composable
+private fun HubRow(title: String, summary: String, onClick: () -> Unit) {
+    Column {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 68.dp).bounceClick(title, onClick),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Quiet(summary, Modifier.padding(top = 2.dp))
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Ink.dusk)
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Ink.line))
+    }
+}
+
+private fun narratorSummary(): String {
+    val v = App.voiceName
+    val name = if (v.startsWith("sherpa:")) {
+        val parts = v.split(":")
+        VoicePacks.byId(parts.getOrNull(1) ?: "")?.speakers?.getOrNull(parts.getOrNull(2)?.toIntOrNull() ?: 0) ?: "Downloaded voice"
+    } else "Phone voice"
+    return "$name, ${PackManager.installed.size} downloaded"
+}
+
+private fun readingSummary(): String {
+    val fixed = listOf(App.autoVoice, App.autoSpeed, App.autoSound, App.autoMusic).count { !it }
+    return if (fixed == 0) "Voices, pace, sound and music: all automatic" else "$fixed of 4 set by hand"
+}
+
+private fun aiSummary(): String {
+    val models = AiModels.installed.size
+    return if (models == 0) "What this phone can run. AI Director not set up" else "AI Director: $models model${if (models == 1) "" else "s"} installed"
+}
+
+private fun storageSummary(): String {
+    val mb = (App.audioBytes() + PackManager.diskBytes() + AiModels.diskBytes() + app.murmur.data.RemoteContent.cacheBytes()) / 1_048_576
+    return "$mb MB used on this phone"
+}
+
+@Composable
+private fun VoicesPage() {
     var voices by remember { mutableStateOf<List<VoiceInfo>>(emptyList()) }
     var resolved by remember { mutableStateOf("") }
     var menu by remember { mutableStateOf(false) }
-    var bytes by remember { mutableLongStateOf(App.audioBytes()) }
     val sliderColors = SliderDefaults.colors(thumbColor = Ink.ember, activeTrackColor = Ink.ember, inactiveTrackColor = Ink.lampHigh)
-
     LaunchedEffect(PackManager.installed.size, App.voiceName) {
         voices = PlayerHub.engine.voices()
         resolved = PlayerHub.engine.resolveVoice(App.voiceName)
     }
 
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-        Text("You", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
-        val nights = App.streak()
-        Quiet(
-            "${App.todaySeconds / 60} minutes today, $nights night${if (nights == 1) "" else "s"} in a row.",
-            Modifier.padding(top = 6.dp),
-        )
-
-        Heading("Narrator")
-        val current = voices.firstOrNull { it.name == (App.voiceName.ifBlank { resolved }) } ?: voices.firstOrNull { it.name == resolved }
-        Box {
-            GhostButton(current?.label ?: if (voices.isEmpty()) "Loading voices" else "Default voice", { menu = true }, Modifier.fillMaxWidth())
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                voices.forEach { v ->
-                    DropdownMenuItem(
-                        text = { Text(v.label + if (v.offline) "" else " (needs internet)") },
-                        onClick = { App.voiceName = v.name; App.saveSettings(); menu = false },
-                    )
-                }
+    Heading("Narrator")
+    val current = voices.firstOrNull { it.name == (App.voiceName.ifBlank { resolved }) } ?: voices.firstOrNull { it.name == resolved }
+    Box {
+        GhostButton(current?.label ?: if (voices.isEmpty()) "Loading voices" else "Default voice", { menu = true }, Modifier.fillMaxWidth())
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            voices.forEach { v ->
+                DropdownMenuItem(
+                    text = { Text(v.label + if (v.offline) "" else " (needs internet)") },
+                    onClick = { App.voiceName = v.name; App.saveSettings(); menu = false },
+                )
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-            TextButton(onClick = { PlayerHub.preview() }) { Text("Hear this voice", color = Ink.ember) }
-            if (PlayerHub.previewStatus.isNotBlank()) Quiet(PlayerHub.previewStatus)
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+        TextButton(onClick = { PlayerHub.preview() }) { Text("Hear this voice", color = Ink.ember) }
+        if (PlayerHub.previewStatus.isNotBlank()) Quiet(PlayerHub.previewStatus)
+    }
+    Quiet("Pitch")
+    Slider(value = App.pitch, onValueChange = { App.pitch = it }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0.8f..1.2f, colors = sliderColors)
+
+    Heading("Get more voices")
+    Quiet("Natural voices that run on this phone, offline after a one-time download. Kokoro sounds best; Piper voices are small and quick. With a few installed, the Director gives dialogue its own voices.")
+    Spacer(Modifier.height(8.dp))
+    VoicePacks.all.forEach { pack -> PackRow(pack) }
+}
+
+@Composable
+private fun ReadingPage() {
+    val sliderColors = SliderDefaults.colors(thumbColor = Ink.ember, activeTrackColor = Ink.ember, inactiveTrackColor = Ink.lampHigh)
+    Quiet("Murmur reads each story first and decides who speaks, how fast, and which background sound fits the scene. Turn any of these off to keep one fixed choice.", Modifier.padding(top = 8.dp))
+    DirectorSwitch("Character voices", "Dialogue gets a different voice than the narrator, matched by gender.", App.autoVoice) { App.autoVoice = it; App.saveSettings() }
+    DirectorSwitch("Pace", "Slower for calm and closing lines, quicker for action.", App.autoSpeed) { App.autoSpeed = it; App.saveSettings() }
+    DirectorSwitch("Background sound", "Real recordings of rain, forest, night, fire and more, chosen from the scene and crossfaded.", App.autoSound) { App.autoSound = it; App.saveSettings() }
+    DirectorSwitch("Music", "A quiet instrumental bed matched to the story's mood; tense scenes get the tension bed.", App.autoMusic) { App.autoMusic = it; App.saveSettings() }
+
+    if (!App.autoSpeed) {
+        Heading("Fixed pace")
+        Quiet("${"%.2f".format(App.speed)}×")
+        Slider(value = App.speed, onValueChange = { App.speed = it }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0.7f..1.6f, colors = sliderColors)
+    }
+    if (!App.autoSound) {
+        Heading("Fixed background sound")
+        FlowRow(horizontalArrangement = spacedRow, verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            AmbienceKind.entries.forEach { k -> Pill(k.label, App.ambience == k) { App.ambience = k; App.saveSettings() } }
         }
-        Quiet("Pitch")
-        Slider(value = App.pitch, onValueChange = { App.pitch = it }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0.8f..1.2f, colors = sliderColors)
-
-        Heading("Get more voices")
-        Quiet("Natural voices that run on this phone, offline after a one-time download. Kokoro sounds best; Piper voices are small and quick. With a few installed, the Director gives dialogue its own voices.")
-        Spacer(Modifier.height(8.dp))
-        VoicePacks.all.forEach { pack -> PackRow(pack) }
-
-        Heading("Story Director")
-        Quiet("Murmur reads each story first and decides who speaks, how fast, and which background sound fits the scene. Turn any of these off to keep one fixed choice.")
-        DirectorSwitch("Character voices", "Dialogue gets a different voice than the narrator, matched by gender.", App.autoVoice) { App.autoVoice = it; App.saveSettings() }
-        DirectorSwitch("Pace", "Slower for calm and closing lines, quicker for action.", App.autoSpeed) { App.autoSpeed = it; App.saveSettings() }
-        DirectorSwitch("Background sound", "Real recordings of rain, forest, night, fire and more, chosen from the scene and crossfaded.", App.autoSound) { App.autoSound = it; App.saveSettings() }
-        DirectorSwitch("Music", "A quiet instrumental bed matched to the story's mood; tense scenes get the tension bed.", App.autoMusic) { App.autoMusic = it; App.saveSettings() }
-
-        if (!App.autoSpeed) {
-            Heading("Fixed pace")
-            Quiet("${"%.2f".format(App.speed)}×")
-            Slider(value = App.speed, onValueChange = { App.speed = it }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0.7f..1.6f, colors = sliderColors)
+    }
+    if (!App.autoMusic) {
+        Heading("Fixed music")
+        FlowRow(horizontalArrangement = spacedRow, verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            MusicMood.entries.forEach { m -> Pill(m.label, App.music == m) { App.music = m; App.saveSettings() } }
         }
-        if (!App.autoSound) {
-            Heading("Fixed background sound")
-            FlowRow(horizontalArrangement = spacedRow, verticalArrangement = spacedRow) {
-                AmbienceKind.entries.forEach { k -> Pill(k.label, App.ambience == k) { App.ambience = k; App.saveSettings() } }
-            }
-        }
-        if (!App.autoMusic) {
-            Heading("Fixed music")
-            FlowRow(horizontalArrangement = spacedRow, verticalArrangement = spacedRow) {
-                MusicMood.entries.forEach { m -> Pill(m.label, App.music == m) { App.music = m; App.saveSettings() } }
-            }
-        }
-        Heading("Background volume")
-        Slider(value = App.ambienceVolume, onValueChange = { App.ambienceVolume = it; PlayerHub.updateAmbience() }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0.05f..1f, colors = sliderColors)
-        Heading("Music volume")
-        Slider(value = App.musicVolume, onValueChange = { App.musicVolume = it; PlayerHub.updateAmbience() }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0f..0.8f, colors = sliderColors)
+    }
+    Heading("Background volume")
+    Slider(value = App.ambienceVolume, onValueChange = { App.ambienceVolume = it; PlayerHub.updateAmbience() }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0.05f..1f, colors = sliderColors)
+    Heading("Music volume")
+    Slider(value = App.musicVolume, onValueChange = { App.musicVolume = it; PlayerHub.updateAmbience() }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0f..0.8f, colors = sliderColors)
+}
 
-        GoalBlock()
-        if (App.reflections.isNotEmpty()) {
-            Heading("Your reflections")
-            App.reflections.take(5).forEach { r ->
-                Column(Modifier.padding(bottom = 12.dp)) {
-                    Text(r.text, style = MaterialTheme.typography.bodyLarge)
-                    Quiet(r.date + (r.storyTitle?.let { ", after $it" } ?: ""))
-                }
-            }
+@Composable
+private fun StoragePage() {
+    var bytes by remember { mutableLongStateOf(App.audioBytes()) }
+    var picBytes by remember { mutableLongStateOf(app.murmur.data.RemoteContent.cacheBytes()) }
+    Heading("Online books")
+    Quiet(app.murmur.data.RemoteContent.status.ifBlank { "New books and illustrations are fetched from the internet, never bundled." })
+    Quiet("Pictures saved on this phone: ${"%.1f".format(picBytes / 1_048_576.0)} MB. Each is downloaded once, when you first open its story.", Modifier.padding(top = 4.dp))
+    Row {
+        TextButton(onClick = { app.murmur.data.RemoteContent.refresh() }) { Text("Check for new books", color = Ink.ember) }
+        TextButton(onClick = { app.murmur.data.RemoteContent.clearCache(); picBytes = 0L }) { Text("Clear pictures", color = Ink.ember) }
+    }
+
+    Heading("On this phone")
+    Quiet("Story audio: ${"%.1f".format(bytes / 1_048_576.0)} MB. Downloaded voices: ${"%.0f".format(PackManager.diskBytes() / 1_048_576.0)} MB. AI models: ${"%.0f".format(AiModels.diskBytes() / 1_048_576.0)} MB.")
+    Quiet("Story audio is rebuilt from the text whenever you need it, so it's safe to clear.", Modifier.padding(top = 4.dp))
+    TextButton(onClick = { App.clearAudio(); bytes = App.audioBytes() }) { Text("Clear story audio", color = Ink.ember) }
+}
+
+@Composable
+private fun NotesPage() {
+    Quiet("One line after a story, kept on this phone.", Modifier.padding(top = 8.dp))
+    App.reflections.take(30).forEach { r ->
+        Column(Modifier.padding(top = 16.dp)) {
+            Text(r.text, style = MaterialTheme.typography.bodyLarge)
+            Quiet(r.date + (r.storyTitle?.let { ", after $it" } ?: ""))
         }
-
-        Heading("Online library")
-        var picBytes by remember { mutableLongStateOf(app.murmur.data.RemoteContent.cacheBytes()) }
-        Quiet(app.murmur.data.RemoteContent.status.ifBlank { "New books and illustrations are fetched from the internet, never bundled." })
-        Quiet("Pictures saved on this phone: ${"%.1f".format(picBytes / 1_048_576.0)} MB. Each is downloaded once, when you first open its story.", Modifier.padding(top = 4.dp))
-        Row {
-            TextButton(onClick = { app.murmur.data.RemoteContent.refresh() }) { Text("Check for new books", color = Ink.ember) }
-            TextButton(onClick = { app.murmur.data.RemoteContent.clearCache(); picBytes = 0L }) { Text("Clear pictures", color = Ink.ember) }
-        }
-
-        Heading("Storage")
-        Quiet("Story audio on this phone: ${"%.1f".format(bytes / 1_048_576.0)} MB. Downloaded voices: ${"%.0f".format(PackManager.diskBytes() / 1_048_576.0)} MB.")
-        Quiet("Story audio is rebuilt from the text whenever you need it, so it's safe to clear.")
-        TextButton(onClick = { App.clearAudio(); bytes = App.audioBytes() }) { Text("Clear story audio", color = Ink.ember) }
-
-        Heading("About")
-        GhostButton("About and credits", onAbout, Modifier.fillMaxWidth().padding(top = 4.dp))
-        Spacer(Modifier.height(36.dp))
     }
 }
 

@@ -19,6 +19,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.unit.dp
 import app.murmur.App
 import app.murmur.data.Moods
@@ -96,14 +100,24 @@ private fun greeting(): String {
 
 @Composable
 private fun Hero(story: Story, resuming: Boolean, onOpen: () -> Unit) {
-    Column(Modifier.padding(horizontal = 20.dp).padding(top = 22.dp)) {
+    Column(
+        Modifier
+            .drawBehind {
+                drawCircle(
+                    Brush.radialGradient(listOf(coverTint(story).copy(alpha = 0.55f), Color.Transparent), Offset(size.width / 2, size.width * 0.5f), size.width * 0.85f),
+                    size.width * 0.85f, Offset(size.width / 2, size.width * 0.5f),
+                )
+            }
+            .padding(horizontal = 20.dp)
+            .padding(top = 22.dp),
+    ) {
         Cover(
             story,
             Modifier.fillMaxWidth().aspectRatio(1.3f).bounceClick("Open ${story.title}", onOpen),
             corner = 10.dp,
             mat = 6.dp,
         )
-        Text(story.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 14.dp))
+        Text(story.title, style = StoryTitle, modifier = Modifier.padding(top = 14.dp))
         Quiet(story.meta(), Modifier.padding(top = 2.dp))
         PrimaryButton(
             if (resuming) "Continue listening" else "Listen",

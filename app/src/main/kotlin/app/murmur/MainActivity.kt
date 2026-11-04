@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -56,6 +57,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,11 +88,16 @@ enum class Screen { HOME, LIBRARY, ADD, SETTINGS, ABOUT, PLAYER, PAUSE, DONE }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         setContent {
             MurmurTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Root()
+                Box(Modifier.fillMaxSize().background(Ink.sky)) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent, contentColor = Ink.moth) {
+                        Root()
+                    }
                 }
             }
         }
@@ -142,7 +149,8 @@ private fun Root() {
     val reduceMotion = remember { motionReduced(ctx) }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
+        contentColor = Ink.moth,
         bottomBar = {
             Column {
                 if (PlayerHub.current != null && screen != Screen.PLAYER) MiniPlayer { showPlayer() }
@@ -227,7 +235,7 @@ private fun MiniPlayer(onClick: () -> Unit) {
                     )
                 }
                 Box(
-                    Modifier.size(48.dp).background(Ink.ember, CircleShape).bounceClick(if (PlayerHub.playing) "Pause" else "Play") { PlayerHub.togglePlay() },
+                    Modifier.size(48.dp).background(Ink.aurora, CircleShape).bounceClick(if (PlayerHub.playing) "Pause" else "Play") { PlayerHub.togglePlay() },
                     contentAlignment = Alignment.Center,
                 ) {
                     GlyphIcon(if (PlayerHub.playing) Glyph.PAUSE else Glyph.PLAY, Ink.onEmber, 24.dp, if (PlayerHub.playing) "Pause" else "Play")

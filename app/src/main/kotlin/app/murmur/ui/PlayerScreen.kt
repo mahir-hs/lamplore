@@ -207,7 +207,7 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
             SceneBackdrop(scene, Modifier.matchParentSize())
             Box(
                 Modifier.matchParentSize().background(
-                    Brush.verticalGradient(0f to Ink.night, 0.22f to Ink.night.copy(alpha = 0.0f), 0.72f to Color.Transparent, 1f to Ink.night),
+                    Brush.verticalGradient(0f to Color(0xFF0D1638), 0.22f to Color(0xFF0D1638).copy(alpha = 0.0f), 0.72f to Color.Transparent, 1f to Ink.night),
                 ),
             )
             Cover(
@@ -230,7 +230,7 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
         Column(Modifier.padding(horizontal = 24.dp)) {
             Text(
                 story.title,
-                style = MaterialTheme.typography.headlineMedium,
+                style = StoryTitle,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -395,9 +395,10 @@ private fun TransportButton(glyph: Glyph, tint: Color, description: String, onCl
 @Composable
 private fun PlayButton(waiting: Boolean, percent: Int?) {
     Box(Modifier.size(92.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(92.dp).background(Brush.radialGradient(listOf(Ink.ember.copy(alpha = 0.30f), Color.Transparent)), CircleShape))
         if (waiting) WaitingRing(percent)
         Box(
-            Modifier.size(72.dp).background(Ink.ember, CircleShape).bounceClick(if (PlayerHub.playing) "Pause" else "Play") { PlayerHub.togglePlay() },
+            Modifier.size(72.dp).background(Ink.aurora, CircleShape).bounceClick(if (PlayerHub.playing) "Pause" else "Play") { PlayerHub.togglePlay() },
             contentAlignment = Alignment.Center,
         ) {
             GlyphIcon(if (PlayerHub.playing) Glyph.PAUSE else Glyph.PLAY, Ink.onEmber, 36.dp, if (PlayerHub.playing) "Pause" else "Play")

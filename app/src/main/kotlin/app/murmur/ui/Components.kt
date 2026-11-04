@@ -85,9 +85,14 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(52.dp),
+        modifier = modifier
+            .height(52.dp)
+            .then(if (enabled) Modifier.background(Ink.aurora, RoundedCornerShape(16.dp)) else Modifier),
         shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Ink.ember, contentColor = Ink.onEmber),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent, contentColor = Ink.onEmber,
+            disabledContainerColor = Ink.lampHigh, disabledContentColor = Ink.dusk,
+        ),
     ) { Text(text, style = MaterialTheme.typography.labelLarge) }
 }
 
@@ -114,7 +119,7 @@ fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
         Box(
             Modifier
                 .clip(RoundedCornerShape(999.dp))
-                .background(if (selected) Ink.ember else Ink.lamp)
+                .then(if (selected) Modifier.background(Ink.aurora) else Modifier.background(Ink.lamp))
                 .padding(horizontal = 14.dp, vertical = 9.dp),
         ) {
             Text(

@@ -5,9 +5,9 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <!-- night sky -->
-    <path android:fillColor="#1E1A3A" android:pathData="M0,0h108v108H0z" />
-    <path android:fillColor="#2A2550" android:pathData="M0,54h108v54H0z" />
+    <path android:fillColor="#0B1030" android:pathData="M0,0h108v108H0z" />
+    <path android:fillColor="#162056" android:pathData="M0,54h108v54H0z" />
     <!-- far hills -->
-    <path android:fillColor="#1A1730" android:pathData="M0,74 C20,64 36,70 54,66 C72,62 90,70 108,62 L108,108 L0,108 Z" />
-    <path android:fillColor="#15122A" android:pathData="M0,86 C22,78 40,84 58,80 C76,76 92,84 108,78 L108,108 L0,108 Z" />
+    <path android:fillColor="#0E1538" android:pathData="M0,74 C20,64 36,70 54,66 C72,62 90,70 108,62 L108,108 L0,108 Z" />
+    <path android:fillColor="#090E26" android:pathData="M0,86 C22,78 40,84 58,80 C76,76 92,84 108,78 L108,108 L0,108 Z" />
 </vector>
