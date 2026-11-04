@@ -51,6 +51,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -74,6 +75,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -82,7 +84,9 @@ import androidx.compose.ui.unit.dp
 import app.murmur.App
 import app.murmur.audio.AmbienceKind
 import app.murmur.audio.MusicMood
+import app.murmur.audio.PackManager
 import app.murmur.audio.PlayerHub
+import app.murmur.audio.VoiceInfo
 import app.murmur.audio.Role
 import app.murmur.audio.Segment
 import app.murmur.data.Plate
@@ -113,7 +117,7 @@ fun sceneColor(k: AmbienceKind): Color = when (k) {
     AmbienceKind.NONE -> Ink.line
 }
 
-private enum class Sheet { NONE, TUNE, DIRECTOR, PICTURES }
+private enum class Sheet { NONE, TUNE, DIRECTOR, PICTURES, VOICE }
 
 private val sleepSteps = listOf(0, 10, 20, 30, 60)
 
@@ -176,6 +180,7 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
             Box {
                 IconTap("More options", { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More options", tint = Ink.moth) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Ink.lampHigh) {
+                    MenuRow("Change voice") { menu = false; sheet = Sheet.VOICE }
                     MenuRow("Tune this story") { menu = false; sheet = Sheet.TUNE }
                     MenuRow("How it is being read") { menu = false; sheet = Sheet.DIRECTOR }
                     if (story.plates.isNotEmpty()) MenuRow("Pictures from the book") { menu = false; sheet = Sheet.PICTURES }
@@ -302,6 +307,7 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
             when (sheet) {
                 Sheet.TUNE -> TuneSheet()
                 Sheet.DIRECTOR -> DirectorSheet()
+                Sheet.VOICE -> VoiceSheet { sheet = Sheet.NONE }
                 Sheet.PICTURES -> Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp)) { PlateGallery(story.plates) }
                 Sheet.NONE -> {}
             }
@@ -531,5 +537,44 @@ private fun PlateImage(plate: Plate, tall: Boolean) {
         if (img != null) Canvas(Modifier.matchParentSize()) {
             drawImage(img, dstSize = IntSize(size.width.toInt(), size.height.toInt()))
         }
+    }
+}
+
+/** Pick the narrator without leaving the story. New voices are downloaded on the You tab. */
+@Composable
+private fun VoiceSheet(onClose: () -> Unit) {
+    var voices by remember { mutableStateOf<List<VoiceInfo>>(emptyList()) }
+    var resolved by remember { mutableStateOf("") }
+    var changed by remember { mutableStateOf(false) }
+    LaunchedEffect(PackManager.installed.size, App.voiceName) {
+        voices = PlayerHub.engine.voices()
+        resolved = PlayerHub.engine.resolveVoice(App.voiceName)
+    }
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 36.dp)) {
+        Text("Change voice", style = MaterialTheme.typography.headlineSmall)
+        Quiet("Pick who narrates. The story restarts to use the new voice.", Modifier.padding(top = 4.dp))
+        voices.forEach { v ->
+            val selected = v.name == resolved
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp)
+                    .semantics { this.selected = selected }
+                    .bounceClick("Use ${v.label}") {
+                        App.voiceName = v.name
+                        App.saveSettings()
+                        resolved = v.name
+                        changed = true
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(v.label + if (v.offline) "" else " (needs internet)", style = MaterialTheme.typography.titleMedium, color = if (selected) Ink.ember else Ink.moth, modifier = Modifier.weight(1f))
+                if (selected) Text("Selected", style = MaterialTheme.typography.labelMedium, color = Ink.ember)
+            }
+        }
+        if (changed) {
+            PrimaryButton("Restart with this voice", { onClose(); PlayerHub.restart() }, Modifier.fillMaxWidth().padding(top = 16.dp))
+        }
+        Quiet("Want more voices? Download them on the You tab.", Modifier.padding(top = 16.dp))
     }
 }

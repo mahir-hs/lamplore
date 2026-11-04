@@ -42,7 +42,7 @@ import app.murmur.audio.VoicePack
 import app.murmur.audio.VoicePacks
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onAbout: () -> Unit) {
     var voices by remember { mutableStateOf<List<VoiceInfo>>(emptyList()) }
     var resolved by remember { mutableStateOf("") }
     var menu by remember { mutableStateOf(false) }
@@ -54,14 +54,13 @@ fun SettingsScreen() {
         resolved = PlayerHub.engine.resolveVoice(App.voiceName)
     }
 
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 22.dp)) {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
         Text("You", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
         val nights = App.streak()
         Quiet(
             "${App.todaySeconds / 60} minutes today, $nights night${if (nights == 1) "" else "s"} in a row.",
             Modifier.padding(top = 6.dp),
         )
-        GoalBlock()
 
         Heading("Narrator")
         val current = voices.firstOrNull { it.name == (App.voiceName.ifBlank { resolved }) } ?: voices.firstOrNull { it.name == resolved }
@@ -83,7 +82,7 @@ fun SettingsScreen() {
         Quiet("Pitch")
         Slider(value = App.pitch, onValueChange = { App.pitch = it }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0.8f..1.2f, colors = sliderColors)
 
-        Heading("Voices you can download")
+        Heading("Get more voices")
         Quiet("Natural voices that run on this phone, offline after a one-time download. Kokoro sounds best; Piper voices are small and quick. With a few installed, the Director gives dialogue its own voices.")
         Spacer(Modifier.height(8.dp))
         VoicePacks.all.forEach { pack -> PackRow(pack) }
@@ -117,6 +116,17 @@ fun SettingsScreen() {
         Heading("Music volume")
         Slider(value = App.musicVolume, onValueChange = { App.musicVolume = it; PlayerHub.updateAmbience() }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0f..0.8f, colors = sliderColors)
 
+        GoalBlock()
+        if (App.reflections.isNotEmpty()) {
+            Heading("Your reflections")
+            App.reflections.take(5).forEach { r ->
+                Column(Modifier.padding(bottom = 12.dp)) {
+                    Text(r.text, style = MaterialTheme.typography.bodyLarge)
+                    Quiet(r.date + (r.storyTitle?.let { ", after $it" } ?: ""))
+                }
+            }
+        }
+
         Heading("Online library")
         var picBytes by remember { mutableLongStateOf(app.murmur.data.RemoteContent.cacheBytes()) }
         Quiet(app.murmur.data.RemoteContent.status.ifBlank { "New books and illustrations are fetched from the internet, never bundled." })
@@ -132,10 +142,7 @@ fun SettingsScreen() {
         TextButton(onClick = { App.clearAudio(); bytes = App.audioBytes() }) { Text("Clear story audio", color = Ink.ember) }
 
         Heading("About")
-        Quiet("Murmur 0.3. Fables retold from Aesop, original sleep stories, and folk tales and parables from around the world. Voices by Piper and Kokoro through sherpa-onnx. Type: Fraunces and Manrope (SIL Open Font License).")
-        Quiet("Illustrations: Walter Crane, The Baby's Own Aesop (1887), engraved by Edmund Evans, public domain, via Project Gutenberg #25433.")
-        Quiet("Online books: pictures by Arthur Rackham (Grimm's Fairy Tales, 1909) and Beatrix Potter (The Tale of Peter Rabbit, 1902), public domain, via Project Gutenberg #37381 and #14838.")
-        Quiet("Music by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0. Field recordings by kvgarlic, stephan (pdsounds), udo noll, Jarrod Stanley, INNORECORDS, Evillan, Guillaume Capsowl Voisin, inchadney, daveincamas and eleanor.l.cooper (CC0, public domain or CC BY). Full credits: docs/licenses/SOUNDS.md in the repository.", Modifier.padding(top = 8.dp))
+        GhostButton("About and credits", onAbout, Modifier.fillMaxWidth().padding(top = 4.dp))
         Spacer(Modifier.height(36.dp))
     }
 }

@@ -83,21 +83,23 @@ object PlayerHub {
         bed = SoundBed(app)
     }
 
-    /** Reads a short sentence in the currently selected voice so you can hear it. */
-    fun preview() {
+    /** Reads a short sentence in a voice (the selected one by default) so you can hear it. */
+    fun preview(voiceName: String = App.voiceName) {
         previewJob?.cancel()
         previewPlayer?.release()
         previewPlayer = null
         exo?.pause()
         previewJob = App.scope.launch {
-            val voice = engine.resolveVoice(App.voiceName)
-            val f = File(app.filesDir, "preview/${safe(voice)}.wav")
+            val voice = engine.resolveVoice(voiceName)
+            val f = File(app.filesDir, "preview/v2_${safe(voice)}.wav")
             if (!f.exists() || f.length() < 1024) {
                 previewStatus = "Preparing voice..."
                 val ok = engine.synth(
-                    "Peace be upon you. This is how I will read your stories, slowly and calmly.",
+                    "Hello. This is how I will read your stories, slowly and calmly.",
                     voice,
                     f,
+                    0.9f,
+                    0f,
                 )
                 if (!ok) {
                     previewStatus = "Could not prepare this voice."

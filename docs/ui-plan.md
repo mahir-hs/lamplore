@@ -11,7 +11,11 @@ Back returns to where the player was opened, paper-mat covers, 48 dp pills and b
 no looping animation outside the player, reduce-motion support, one verb for ending the night.
 Deviations: the Home hero is 1.3:1 (a 4:5 hero would fill the screen); you-screen keeps the old Settings
 sections under the goal for now.
-Phases 2 and 3 are not started.
+Phase 2 is coded and builds too (2026-11-04), also unseen on a phone: first-run voice setup (Lessac, Ryan, Amy;
+the sample plays after the 20 MB download, since a sample needs the voice installed), "Change voice" in the
+player menu, Library length filter and online status line, You screen reordered (voices, Director, goal,
+reflections, online library, storage), About screen with the credits, voice preview text no longer religious.
+Phase 3 is not started.
 
 ## Brief
 Murmur: audio stories that calm the heart, listened to mostly at night, to replace scrolling.

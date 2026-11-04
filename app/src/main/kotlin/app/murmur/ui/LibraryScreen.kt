@@ -1,4 +1,10 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package app.murmur.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import app.murmur.data.RemoteContent
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -29,7 +35,16 @@ import app.murmur.data.Story
 @Composable
 fun LibraryScreen(onOpen: (Story) -> Unit, onAdd: () -> Unit) {
     var query by remember { mutableStateOf("") }
-    val all = App.visibleStories
+    // length filter: bedtime stories are chosen by how long you have
+    var length by remember { mutableStateOf<Int?>(null) }
+    val all = App.visibleStories.filter { s ->
+        when (length) {
+            0 -> s.minutes < 8
+            1 -> s.minutes in 8..12
+            2 -> s.minutes > 12
+            else -> true
+        }
+    }
     val results = if (query.isBlank()) emptyList() else all.filter {
         it.title.contains(query, true) || it.author.contains(query, true) || it.summary.contains(query, true)
     }
@@ -52,6 +67,13 @@ fun LibraryScreen(onOpen: (Story) -> Unit, onAdd: () -> Unit) {
                     ),
                     modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
                 )
+                FlowRow(horizontalArrangement = spacedRow, verticalArrangement = Arrangement.spacedBy(0.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    listOf("Under 8 min", "8 to 12 min", "Over 12 min").forEachIndexed { i, label ->
+                        Pill(label, length == i) { length = if (length == i) null else i }
+                    }
+                }
+                val online = RemoteContent.status
+                if (online.isNotBlank()) Quiet(online, Modifier.padding(top = 2.dp))
             }
         }
         if (query.isNotBlank()) {
@@ -60,6 +82,9 @@ fun LibraryScreen(onOpen: (Story) -> Unit, onAdd: () -> Unit) {
             }
             items(results, key = { it.id }) { s -> StoryRow(s) { onOpen(s) } }
         } else {
+            if (length != null && all.isEmpty()) {
+                item { Quiet("No stories this length yet. Try another length.", Modifier.padding(20.dp)) }
+            }
             item { Shelf("Saved", all.filter { it.id in App.favorites }, onOpen) }
             item { Shelf("Continue", all.filter { App.hasProgress(it.id) && it.id !in App.completed }, onOpen) }
             Categories.all.forEach { c ->

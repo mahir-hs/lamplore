@@ -63,7 +63,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import app.murmur.audio.PlayerHub
 import app.murmur.data.Story
+import app.murmur.ui.AboutScreen
 import app.murmur.ui.AddStoryScreen
+import app.murmur.ui.WelcomeScreen
 import app.murmur.ui.Cover
 import app.murmur.ui.Glyph
 import app.murmur.ui.GlyphIcon
@@ -79,7 +81,7 @@ import app.murmur.ui.motionReduced
 import app.murmur.ui.PlayerScreen
 import app.murmur.ui.SettingsScreen
 
-enum class Screen { HOME, LIBRARY, ADD, SETTINGS, PLAYER, PAUSE, DONE }
+enum class Screen { HOME, LIBRARY, ADD, SETTINGS, ABOUT, PLAYER, PAUSE, DONE }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +104,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun Root() {
+    // first run: offer a better voice before anything else
+    if (!App.onboarded) {
+        WelcomeScreen(onDone = { App.finishOnboarding() })
+        return
+    }
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
     val ctx = LocalContext.current
 
@@ -128,6 +135,7 @@ private fun Root() {
         screen = when (screen) {
             Screen.PLAYER -> origin
             Screen.ADD -> Screen.LIBRARY
+            Screen.ABOUT -> Screen.SETTINGS
             else -> Screen.HOME
         }
     }
@@ -167,7 +175,8 @@ private fun Root() {
                     Screen.HOME -> HomeScreen(::open, { screen = Screen.PAUSE }, { screen = Screen.DONE })
                     Screen.LIBRARY -> LibraryScreen(::open) { screen = Screen.ADD }
                     Screen.ADD -> AddStoryScreen(onSaved = ::open, onBack = { screen = Screen.LIBRARY })
-                    Screen.SETTINGS -> SettingsScreen()
+                    Screen.SETTINGS -> SettingsScreen(onAbout = { screen = Screen.ABOUT })
+                    Screen.ABOUT -> AboutScreen(onBack = { screen = Screen.SETTINGS })
                     Screen.PLAYER -> PlayerScreen({ screen = origin }, { screen = Screen.DONE })
                     Screen.PAUSE -> PauseScreen({ screen = Screen.HOME }, ::open)
                     Screen.DONE -> DoneScreen { screen = Screen.HOME }

@@ -37,6 +37,10 @@ object App {
     val reflections = mutableStateListOf<Reflection>()
     val goalDays = mutableStateListOf<Long>()
 
+    /** False until the first-run voice setup is finished or skipped. Existing installs count as done. */
+    var onboarded by mutableStateOf(true)
+        private set
+
     var voiceName by mutableStateOf("")
     var speed by mutableFloatStateOf(1f)
     var pitch by mutableFloatStateOf(1f)
@@ -61,6 +65,7 @@ object App {
         context = c.applicationContext
         prefs = context.getSharedPreferences("murmur", Context.MODE_PRIVATE)
 
+        onboarded = prefs.getBoolean("onboarded", prefs.contains("speed"))
         voiceName = prefs.getString("voice", "") ?: ""
         speed = prefs.getFloat("speed", 0.9f)
         pitch = prefs.getFloat("pitch", 1f)
@@ -111,6 +116,11 @@ object App {
     // ---- dates -------------------------------------------------------------------------------
     fun today(): String = LocalDate.now().toString()
     fun mondayEpoch(): Long = LocalDate.now().let { it.minusDays((it.dayOfWeek.value - 1).toLong()).toEpochDay() }
+
+    fun finishOnboarding() {
+        onboarded = true
+        prefs.edit().putBoolean("onboarded", true).apply()
+    }
 
     // ---- settings ----------------------------------------------------------------------------
     fun saveSettings() {
