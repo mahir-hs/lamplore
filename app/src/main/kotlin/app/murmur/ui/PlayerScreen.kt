@@ -61,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
@@ -183,6 +184,7 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
                     if (!story.isStream) MenuRow("Change voice") { menu = false; sheet = Sheet.VOICE }
                     MenuRow(if (story.isStream) "Speed and sleep timer" else "Tune this story") { menu = false; sheet = Sheet.TUNE }
                     if (!story.isStream) MenuRow("How it is being read") { menu = false; sheet = Sheet.DIRECTOR }
+                    if (!story.isStream) MenuRow(if (App.subtitles) "Hide subtitles" else "Show subtitles") { menu = false; App.subtitles = !App.subtitles; App.saveSettings() }
                     if (story.plates.isNotEmpty()) MenuRow("Pictures from the book") { menu = false; sheet = Sheet.PICTURES }
                     MenuRow("Restart story") { menu = false; PlayerHub.restart() }
                     MenuRow("Report this story") {
@@ -210,20 +212,21 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
                     Brush.verticalGradient(0f to Color(0xFF0D1638), 0.22f to Color(0xFF0D1638).copy(alpha = 0.0f), 0.72f to Color.Transparent, 1f to Ink.night),
                 ),
             )
-            Cover(
-                story,
-                Modifier
-                    .fillMaxHeight(0.64f)
-                    .aspectRatio(0.8f)
-                    .then(
-                        if (story.plates.isNotEmpty()) Modifier.bounceClick("Show pictures from the book") { sheet = Sheet.PICTURES }
-                        else Modifier,
-                    ),
-                corner = 10.dp,
-                mat = 7.dp,
-                animated = PlayerHub.playing,
-            )
+            val captions = App.subtitles && !story.isStream
+            if (story.plates.isNotEmpty()) {
+                // a picture book: the plates stay on screen and turn over as the story moves on
+                PictureBook(story.plates, PlayerHub.fraction, Modifier.matchParentSize().padding(top = 6.dp, bottom = if (captions) 100.dp else 8.dp, start = 14.dp, end = 14.dp)) { sheet = Sheet.PICTURES }
+            } else {
+                Cover(
+                    story,
+                    Modifier.fillMaxHeight(if (captions) 0.58f else 0.64f).aspectRatio(0.8f),
+                    corner = 10.dp,
+                    mat = 7.dp,
+                    animated = PlayerHub.playing,
+                )
+            }
             Box(Modifier.matchParentSize().background(Ink.night.copy(alpha = dim)))
+            if (captions) Caption(PlayerHub.caption, Modifier.align(Alignment.BottomCenter))
         }
 
         // ---- title and what the Director is doing
@@ -446,6 +449,50 @@ private fun DirectorCell(label: String, value: String, modifier: Modifier = Modi
         Text(label, style = MaterialTheme.typography.labelSmall, color = Ink.dusk)
         Crossfade(value, animationSpec = tween(900), label = label) { v ->
             Text(v, style = MaterialTheme.typography.titleSmall, color = Ink.moth, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** The words being read, a sentence at a time, over a soft fade so they stay readable on any picture. */
+@Composable
+private fun Caption(text: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier.fillMaxWidth().height(104.dp)
+            .background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to Ink.night.copy(alpha = 0.82f), 1f to Ink.night.copy(alpha = 0.92f)))
+            .padding(horizontal = 22.dp, vertical = 8.dp),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Crossfade(text, animationSpec = tween(260), label = "caption") { t ->
+            Text(
+                t, style = MaterialTheme.typography.bodyLarge, color = Ink.moth, textAlign = TextAlign.Center,
+                maxLines = 4, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.semantics { contentDescription = "Subtitle: $t" },
+            )
+        }
+    }
+}
+
+/** The book's pictures, one at a time, whole and framed on paper; they crossfade as the story's progress passes each one. */
+@Composable
+private fun PictureBook(plates: List<Plate>, fraction: Float, modifier: Modifier, onClick: () -> Unit) {
+    val n = plates.size
+    val idx = (fraction * n).toInt().coerceIn(0, n - 1)
+    Crossfade(targetState = idx, animationSpec = tween(1100), modifier = modifier, label = "plate") { i ->
+        val img = rememberPlate(plates[i].asset)
+        Box(Modifier.fillMaxSize().bounceClick("Show all pictures from the book", onClick), contentAlignment = Alignment.Center) {
+            if (img != null) {
+                val ratio = img.width.toFloat() / img.height
+                Box(Modifier.aspectRatio(ratio).clip(RoundedCornerShape(10.dp)).background(Ink.paper).padding(7.dp)) {
+                    Canvas(
+                        Modifier.fillMaxSize().clip(RoundedCornerShape(5.dp)).graphicsLayer {
+                            // a very slow drift so the picture is alive without being a distraction
+                            val s = if (PlayerHub.playing) 1.03f + 0.025f * kotlin.math.sin(Clock.t * 0.18f) else 1.03f
+                            scaleX = s
+                            scaleY = s
+                        },
+                    ) { drawImage(img, dstSize = IntSize(size.width.toInt(), size.height.toInt())) }
+                }
+            }
         }
     }
 }

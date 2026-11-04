@@ -46,7 +46,11 @@ New books are not bundled. `data/RemoteContent.kt` downloads `catalog.json` (sto
 - **Audiobooks:** the Internet Archive hosts all of LibriVox (about 22,000 free public-domain audiobooks) plus old-time radio. Shelves are live `advancedsearch` queries sorted by downloads (children, fairy tales, fables, mystery, poetry...). A book opens through `archive.org/metadata/<id>` (chapters = 64 kbps MP3 files) and its cover is `archive.org/services/img/<id>`. Search matches title, author or subject.
 - **Podcasts:** Apple's free iTunes charts (`rss/toppodcasts/genre=<id>`) and Search API, no key. Episodes are read from the show's own RSS feed, like any podcast app.
 - Playback reuses `PlayerHub` (`Story.tracks` non-empty = stream): background service, lock screen, sleep timer, per-story resume, 0.8x-2x speed. Streams skip the Director, voices and background sound. Covers are downloaded once into the app cache. Recently played items are kept in the `murmur_listen` prefs.
-- Not done yet: offline download, subscriptions, episode progress bars.
+- **Offline** (`data/Downloads.kt`, `audio/DownloadService.kt`): download a whole book, chosen chapters ("Choose chapters", "Next 5/10") or one chapter or episode. Requests queue and run one chapter at a time, resume from `.part` files, retry archive.org's transient 500s, keep going in a foreground service, and show speed and time left (sliding-window rate, the idea from aniyomi's `RateTracker`). The player uses the saved file for any chapter that has one and streams the rest. Files: `files/downloads/<id>/<chapter>.mp3`.
+- **My list:** star a book or show (`Listen.starred`), mark finished; "In progress" and "Finished" come from listening progress. The **Downloads** pill lists the queue and what is on the phone and works offline.
+- **Activity** (You > Your activity, `data/Activity.kt`, `ui/ActivityPage.kt`): overview, last 7 days, a 17-week heatmap, time per topic and a history, all kept on the phone.
+- **Picture book and subtitles:** stories with plates show them whole, turning over as the story moves on, with the sentence being read underneath (`PlayerHub.caption`). Menu: Hide/Show subtitles.
+- Not done yet: subscriptions, per-episode download queue ordering, playlists across books.
 
 ## Covers
 Every cover is the scene the story lives in plus a drawing of its subject (`ui/Motifs.kt`: tortoise and hare, lion, lighthouse, night train...). Seed stories name their motif and scene; your own stories get one guessed from the title and text (`Motif.guess`), falling back to an open book.

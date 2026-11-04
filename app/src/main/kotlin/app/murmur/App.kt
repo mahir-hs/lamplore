@@ -54,6 +54,9 @@ object App {
     var autoMusic by mutableStateOf(true)
     var music by mutableStateOf(MusicMood.CALM)
     var musicVolume by mutableFloatStateOf(0.22f)
+
+    /** Show the words being read under the picture. */
+    var subtitles by mutableStateOf(true)
     var todaySeconds by mutableIntStateOf(0)
     var doneToday by mutableStateOf(false)
     var goalText by mutableStateOf("")
@@ -78,6 +81,7 @@ object App {
         autoMusic = prefs.getBoolean("autoMusic", true)
         music = runCatching { MusicMood.valueOf(prefs.getString("music", "CALM") ?: "CALM") }.getOrDefault(MusicMood.CALM)
         musicVolume = prefs.getFloat("musicVol", 0.22f)
+        subtitles = prefs.getBoolean("subtitles", true)
 
         favorites.addAll(prefs.getStringSet("fav", emptySet()) ?: emptySet())
         completed.addAll(prefs.getStringSet("completed", emptySet()) ?: emptySet())
@@ -102,6 +106,7 @@ object App {
         stories.addAll(SeedStories.all)
         stories.addAll(loadUserStories())
         app.murmur.data.Listen.init()
+        app.murmur.data.Downloads.init()
         app.murmur.data.RemoteContent.refresh()
         app.murmur.ai.AiModels.init(context)
 
@@ -138,6 +143,7 @@ object App {
             .putBoolean("autoMusic", autoMusic)
             .putString("music", music.name)
             .putFloat("musicVol", musicVolume)
+            .putBoolean("subtitles", subtitles)
             .apply()
         PlayerHub.applyParams()
     }
@@ -152,7 +158,12 @@ object App {
 
     fun markCompleted(id: String) {
         if (id !in completed) completed.add(id)
-        prefs.edit().putStringSet("completed", completed.toSet()).remove("pos_$id").apply()
+        prefs.edit().putStringSet("completed", completed.toSet()).remove("pos_$id").remove("frac_$id").apply()
+    }
+
+    fun unmarkCompleted(id: String) {
+        completed.remove(id)
+        prefs.edit().putStringSet("completed", completed.toSet()).apply()
     }
 
     fun report(id: String) {
@@ -160,9 +171,14 @@ object App {
         prefs.edit().putStringSet("reported", reported.toSet()).apply()
     }
 
-    fun saveProgress(id: String, index: Int, posMs: Long) {
-        prefs.edit().putString("pos_$id", "$index:$posMs").apply()
+    fun saveProgress(id: String, index: Int, posMs: Long, fraction: Float = -1f) {
+        val e = prefs.edit().putString("pos_$id", "$index:$posMs")
+        if (fraction >= 0f) e.putFloat("frac_$id", fraction)
+        e.apply()
     }
+
+    /** How far through a story or book you are, 0..1 (0 when not started or finished). */
+    fun progressFraction(id: String): Float = if (prefs.contains("pos_$id")) prefs.getFloat("frac_$id", 0f) else 0f
 
     fun savedProgress(id: String): Pair<Int, Long>? {
         val s = prefs.getString("pos_$id", null) ?: return null
@@ -171,7 +187,7 @@ object App {
     }
 
     fun clearProgress(id: String) {
-        prefs.edit().remove("pos_$id").apply()
+        prefs.edit().remove("pos_$id").remove("frac_$id").apply()
     }
 
     fun hasProgress(id: String) = prefs.contains("pos_$id")
@@ -241,6 +257,10 @@ object App {
         listen.forEach { (k, v) -> o.put(k, v) }
         prefs.edit().putString("listen", o.toString()).apply()
     }
+
+    fun secondsOn(d: LocalDate): Int = listen[d.toString()] ?: 0
+    fun allSeconds(): Int = listen.values.sum()
+    fun firstListenDate(): LocalDate? = listen.keys.minOrNull()?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
     private fun active(d: LocalDate): Boolean =
         (listen[d.toString()] ?: 0) >= 60 || d.toString() in doneDates

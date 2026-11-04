@@ -51,6 +51,7 @@ import app.murmur.audio.VoicePack
 import app.murmur.audio.VoicePacks
 
 private enum class Page(val title: String) {
+    ACTIVITY("Your activity"),
     VOICES("Voices"),
     READING("How stories are read"),
     PHONE("Your phone and AI"),
@@ -68,6 +69,7 @@ fun SettingsScreen(onAbout: () -> Unit) {
     val current = page?.let { name -> Page.entries.firstOrNull { it.name == name } }
     when (current) {
         null -> Hub(onOpen = { page = it.name }, onAbout = onAbout)
+        Page.ACTIVITY -> PageFrame(current.title, { page = null }) { ActivityPage() }
         Page.VOICES -> PageFrame(current.title, { page = null }) { VoicesPage() }
         Page.READING -> PageFrame(current.title, { page = null }) { ReadingPage() }
         Page.PHONE -> PageFrame(current.title, { page = null }) { PhoneCheckSection() }
@@ -96,6 +98,9 @@ private fun Hub(onOpen: (Page) -> Unit, onAbout: () -> Unit) {
             Modifier.padding(top = 6.dp),
         )
         GoalBlock()
+
+        Heading("Activity")
+        HubRow("Your activity", "${app.murmur.data.Activity.seconds(java.time.LocalDate.now()) / 60} min today, overview, heatmap, history") { onOpen(Page.ACTIVITY) }
 
         Heading("Settings")
         HubRow("Voices", narratorSummary()) { onOpen(Page.VOICES) }
@@ -235,6 +240,11 @@ private fun StoragePage() {
     Quiet("Story audio: ${"%.1f".format(bytes / 1_048_576.0)} MB. Downloaded voices: ${"%.0f".format(PackManager.diskBytes() / 1_048_576.0)} MB. AI models: ${"%.0f".format(AiModels.diskBytes() / 1_048_576.0)} MB.")
     Quiet("Story audio is rebuilt from the text whenever you need it, so it's safe to clear.", Modifier.padding(top = 4.dp))
     TextButton(onClick = { App.clearAudio(); bytes = App.audioBytes() }) { Text("Clear story audio", color = Ink.ember) }
+
+    Heading("Downloaded audiobooks and podcasts")
+    var dl by remember { mutableLongStateOf(app.murmur.data.Downloads.bytes()) }
+    Quiet("${app.murmur.data.Downloads.saved.size} saved for offline, ${"%.0f".format(dl / 1_048_576.0)} MB. Remove single items from the Listen tab.")
+    TextButton(onClick = { app.murmur.data.Downloads.removeAll(); dl = 0L }) { Text("Remove all downloads", color = Ink.ember) }
 }
 
 @Composable

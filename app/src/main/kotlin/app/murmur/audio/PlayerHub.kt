@@ -21,6 +21,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import app.murmur.App
+import app.murmur.data.Activity
+import app.murmur.data.Downloads
 import app.murmur.data.Listen
 import app.murmur.data.Story
 import kotlinx.coroutines.Job
@@ -64,6 +66,43 @@ object PlayerHub {
     var roleVoices by mutableStateOf<Map<Role, VoiceInfo>>(emptyMap())
 
     var previewStatus by mutableStateOf("")
+
+    /** The sentence being read right now (for subtitles); empty for recorded audio. */
+    var caption by mutableStateOf("")
+        private set
+    private val sentenceCache = HashMap<Int, List<String>>()
+
+    /** Sentences, with long ones cut at commas so a subtitle stays short enough to read at a glance. */
+    private fun splitSentences(t: String): List<String> =
+        t.trim().split(Regex("(?<=[.!?\u2026][\"\u201d\u2019']?)\\s+")).map { it.trim() }.filter { it.isNotEmpty() }.flatMap { s ->
+            if (s.length <= 120) listOf(s) else {
+                val out = mutableListOf<String>()
+                var cur = StringBuilder()
+                for (piece in s.split(Regex("(?<=[,;:])\\s+"))) {
+                    if (cur.isNotEmpty() && cur.length + piece.length > 110) { out += cur.toString(); cur = StringBuilder() }
+                    if (cur.isNotEmpty()) cur.append(' ')
+                    cur.append(piece)
+                }
+                if (cur.isNotEmpty()) out += cur.toString()
+                out
+            }
+        }
+
+    private fun updateCaption(p: ExoPlayer) {
+        val k = base + p.currentMediaItemIndex
+        val seg = segments.getOrNull(k) ?: return
+        val sents = sentenceCache.getOrPut(k) { splitSentences(seg.text) }
+        val dur = p.duration
+        if (sents.isEmpty() || dur <= 0) return
+        // the audio ends with a pause; speech fills the rest, spread over the sentences by length
+        val speechMs = (dur - seg.pause * 1000.0).coerceAtLeast(dur * 0.7)
+        val total = sents.sumOf { it.length }.coerceAtLeast(1)
+        val at = (p.currentPosition / speechMs).coerceIn(0.0, 0.999) * total
+        var acc = 0
+        var chosen = sents.last()
+        for (s in sents) { acc += s.length; if (at < acc) { chosen = s; break } }
+        if (chosen != caption) caption = chosen
+    }
 
     /** True while a recorded stream (audiobook or podcast) is playing instead of Murmur's own voice. */
     var streaming by mutableStateOf(false)
@@ -261,7 +300,7 @@ object PlayerHub {
             p.addMediaItem(
                 MediaItem.Builder()
                     .setMediaId("${story.id}#$i")
-                    .setUri(t.url)
+                    .setUri(Downloads.local(story.id, i, t.url)?.let { Uri.fromFile(it) } ?: Uri.parse(t.url))
                     .setMediaMetadata(MediaMetadata.Builder().setTitle(if (story.tracks.size > 1) "${story.title}: ${t.title}" else story.title).setArtist(story.author).setAlbumTitle(story.category).build())
                     .build(),
             )
@@ -337,6 +376,8 @@ object PlayerHub {
         streaming = false
         stopInternal()
         ensureService()
+        sentenceCache.clear()
+        caption = ""
         current = story
         finished = false
         fraction = 0f
@@ -519,7 +560,7 @@ object PlayerHub {
         val s = current ?: return
         val p = exo ?: return
         if (p.mediaItemCount == 0 || finished) return
-        App.saveProgress(s.id, base + p.currentMediaItemIndex, p.currentPosition)
+        App.saveProgress(s.id, base + p.currentMediaItemIndex, p.currentPosition, fraction)
     }
 
     private fun stopInternal() {
@@ -552,7 +593,7 @@ object PlayerHub {
             var acc = 0
             var lastIdx = -1
             while (isActive) {
-                delay(500)
+                delay(250)
                 val p = exo ?: continue
                 if (p.mediaItemCount > 0) {
                     val idx = p.currentMediaItemIndex
@@ -561,6 +602,7 @@ object PlayerHub {
                         applyParams()
                     }
                     part = base + idx
+                    if (!streaming && App.subtitles) updateCaption(p) else if (caption.isNotEmpty()) caption = ""
                     if (streaming) {
                         if (p.duration > 0 && idx < estSec.size) estSec[idx] = p.duration / 1000.0
                         if (p.isPlaying && status == "Loading...") status = ""
@@ -572,10 +614,11 @@ object PlayerHub {
                     fraction = if (total > 0) (pos / total).toFloat().coerceIn(0f, 1f) else 0f
                 }
                 if (p.isPlaying) {
-                    acc += 500
+                    acc += 250
                     if (acc >= 10_000) {
                         acc = 0
                         App.addListening(10)
+                        current?.let { Activity.record(it, 10) }
                         saveProgress()
                     }
                 }

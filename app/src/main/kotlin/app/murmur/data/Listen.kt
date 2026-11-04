@@ -41,22 +41,52 @@ object Listen {
     private val cache = HashMap<String, List<Item>>()
     private val bookCache = HashMap<String, Story>()
 
+    /** Audiobooks and shows the listener has starred: "My list". */
+    val starred = mutableStateListOf<Item>()
+
+    fun isStarred(key: String) = starred.any { it.key == key }
+
+    fun toggleStar(item: Item) {
+        if (isStarred(item.key)) starred.removeAll { it.key == item.key } else starred.add(0, item)
+        val a = JSONArray()
+        starred.forEach { a.put(JSONObject().put("k", it.key).put("t", it.title).put("a", it.author).put("i", it.art).put("r", it.ref).put("s", it.isShow)) }
+        prefs.edit().putString("starred", a.toString()).apply()
+    }
+
+    /** A story that was played or downloaded, as something to browse. */
+    fun itemOf(s: Story) = Item(s.id, s.title, s.author, s.art, if (s.id.startsWith("ia_")) s.id.removePrefix("ia_") else s.id, false)
+
     fun init() {
+        runCatching { recent.addAll(decode(prefs.getString("recent", "[]") ?: "[]")) }
         runCatching {
-            val a = JSONArray(prefs.getString("recent", "[]") ?: "[]")
-            for (i in 0 until a.length()) {
-                val o = a.getJSONObject(i)
-                val t = o.getJSONArray("tracks")
-                recent.add(
-                    stream(
-                        o.getString("id"), o.getString("title"), o.getString("author"), o.getString("category"),
-                        o.optString("summary"),
-                        (0 until t.length()).map { k -> t.getJSONObject(k).let { Track(it.getString("t"), it.getString("u"), it.getInt("s")) } },
-                        o.optString("art"),
-                    ),
-                )
-            }
+            val a = JSONArray(prefs.getString("starred", "[]") ?: "[]")
+            for (i in 0 until a.length()) a.getJSONObject(i).let { starred.add(Item(it.getString("k"), it.getString("t"), it.getString("a"), it.getString("i"), it.getString("r"), it.getBoolean("s"))) }
         }
+    }
+
+    fun decode(json: String): List<Story> {
+        val a = JSONArray(json)
+        return (0 until a.length()).map { i ->
+            val o = a.getJSONObject(i)
+            val t = o.getJSONArray("tracks")
+            stream(
+                o.getString("id"), o.getString("title"), o.getString("author"), o.getString("category"), o.optString("summary"),
+                (0 until t.length()).map { k -> t.getJSONObject(k).let { Track(it.getString("t"), it.getString("u"), it.getInt("s")) } },
+                o.optString("art"),
+            )
+        }
+    }
+
+    fun encode(list: List<Story>): String {
+        val a = JSONArray()
+        list.forEach { r ->
+            a.put(
+                JSONObject().put("id", r.id).put("title", r.title).put("author", r.author)
+                    .put("category", r.category).put("summary", r.summary).put("art", r.art)
+                    .put("tracks", JSONArray().also { ta -> r.tracks.forEach { ta.put(JSONObject().put("t", it.title).put("u", it.url).put("s", it.seconds)) } }),
+            )
+        }
+        return a.toString()
     }
 
     /** Remember a stream that was just started (moves it to the top). */
@@ -74,18 +104,10 @@ object Listen {
     }
 
     private fun persist() {
-        val a = JSONArray()
-        recent.forEach { r ->
-            a.put(
-                JSONObject().put("id", r.id).put("title", r.title).put("author", r.author)
-                    .put("category", r.category).put("summary", r.summary).put("art", r.art)
-                    .put("tracks", JSONArray().also { ta -> r.tracks.forEach { ta.put(JSONObject().put("t", it.title).put("u", it.url).put("s", it.seconds)) } }),
-            )
-        }
-        prefs.edit().putString("recent", a.toString()).apply()
+        prefs.edit().putString("recent", encode(recent)).apply()
     }
 
-    private fun stream(id: String, title: String, author: String, category: String, summary: String, tracks: List<Track>, art: String = "") = Story(
+    fun stream(id: String, title: String, author: String, category: String, summary: String, tracks: List<Track>, art: String = "") = Story(
         id = id, title = title, author = author, category = category, moods = setOf("calm"),
         summary = summary, body = "",
         rights = if (category == Categories.PODCASTS) "Streamed from the publisher's feed" else "Free recording hosted by the Internet Archive (LibriVox is public domain)",
@@ -154,6 +176,9 @@ object Listen {
     /** Full book (all chapters as tracks) from the Internet Archive item's file list. */
     suspend fun book(item: Item): Story? = withContext(Dispatchers.IO) {
         synchronized(bookCache) { bookCache[item.ref] }?.let { return@withContext it }
+        // already downloaded or played: no need for the internet to show its chapters
+        Downloads.saved.firstOrNull { it.id == item.key }?.let { return@withContext it }
+        recent.firstOrNull { it.id == item.key }?.let { return@withContext it }
         runCatching {
             val j = JSONObject(get("https://archive.org/metadata/${item.ref}"))
             val files = j.getJSONArray("files")
@@ -234,7 +259,8 @@ object Listen {
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 
-    private fun open(url: String): HttpURLConnection {
+    /** Opens [url], following redirects (also http to https). [from] > 0 asks the server to resume at that byte. */
+    fun open(url: String, from: Long = 0L): HttpURLConnection {
         var u = url
         repeat(5) {
             val c = URL(u).openConnection() as HttpURLConnection
@@ -242,6 +268,7 @@ object Listen {
             c.readTimeout = 20_000
             c.instanceFollowRedirects = false
             c.setRequestProperty("User-Agent", UA)
+            if (from > 0) c.setRequestProperty("Range", "bytes=$from-")
             val code = c.responseCode
             if (code in 300..399) {
                 val loc = c.getHeaderField("Location") ?: return c

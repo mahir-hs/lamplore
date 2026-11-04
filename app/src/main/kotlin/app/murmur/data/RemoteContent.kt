@@ -33,6 +33,7 @@ object RemoteContent {
 
     /** Loads the saved catalog right away, then tries the network. Safe to call more than once. */
     fun refresh() {
+        dropStaleAudioOnce()
         App.scope.launch {
             val cached = withContext(Dispatchers.IO) { runCatching { parse(catalogFile.readText()) }.getOrNull() }
             if (cached != null) apply(cached)
@@ -102,6 +103,36 @@ object RemoteContent {
         }
     }
 
+    // Windows-1252 shows bytes 0x80..0x9F as these characters (the rest of 0x80..0xFF equals Latin-1)
+    private const val CP1252_HIGH = "\u20ac\u0081\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u008d\u017d\u008f" +
+        "\u0090\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u009d\u017e\u0178"
+
+    /**
+     * The first online books were saved with UTF-8 dashes and quotes read as Windows-1252, so "—" arrived
+     * as "â€”". Turn the bytes back into text; anything that does not look like that is left alone.
+     */
+    fun repair(s: String): String {
+        if (!s.contains("\u00e2\u20ac")) return s
+        val bytes = ByteArray(s.length)
+        for ((i, c) in s.withIndex()) {
+            val b = when {
+                c.code < 0x80 || c.code in 0xa0..0xff -> c.code
+                CP1252_HIGH.indexOf(c) >= 0 -> 0x80 + CP1252_HIGH.indexOf(c)
+                else -> return s
+            }
+            bytes[i] = b.toByte()
+        }
+        return String(bytes, Charsets.UTF_8)
+    }
+
+    /** Narration made from the damaged text is stale: drop it once so it is read again from the repaired text. */
+    private fun dropStaleAudioOnce() {
+        val prefs = App.context.getSharedPreferences("murmur", android.content.Context.MODE_PRIVATE)
+        if (prefs.getBoolean("fix_text_v1", false)) return
+        File(App.context.filesDir, "audio").listFiles()?.filter { it.name.startsWith("bk_") }?.forEach { it.deleteRecursively() }
+        prefs.edit().putBoolean("fix_text_v1", true).apply()
+    }
+
     private fun story(o: JSONObject): Story {
         val credit = o.optString("credit")
         val plates = o.optJSONArray("plates")?.let { a ->
@@ -121,12 +152,12 @@ object RemoteContent {
         val moods = o.optJSONArray("moods")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() } ?: setOf("calm")
         return Story(
             id = "bk_" + o.getString("id"),
-            title = o.getString("title"),
-            author = o.getString("author"),
+            title = repair(o.getString("title")),
+            author = repair(o.getString("author")),
             category = o.optString("category").ifBlank { Categories.FABLES },
             moods = moods,
-            summary = o.optString("summary"),
-            body = o.getString("body"),
+            summary = repair(o.optString("summary")),
+            body = repair(o.getString("body")),
             rights = o.optString("rights").ifBlank { Rights.PUBLIC_DOMAIN },
             motif = runCatching { Motif.valueOf(o.getString("motif")) }.getOrNull(),
             scene = runCatching { AmbienceKind.valueOf(o.getString("scene")) }.getOrNull(),

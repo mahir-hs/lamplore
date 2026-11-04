@@ -141,6 +141,8 @@ fun CoverTile(story: Story, width: Dp, onClick: () -> Unit) {
             Cover(story, Modifier.width(width).aspectRatio(0.8f))
             if (done) Dot(Modifier.align(Alignment.TopEnd).padding(12.dp).semantics { contentDescription = "Finished" }, Ink.moss)
             if (story.id in App.favorites) Dot(Modifier.align(Alignment.TopStart).padding(12.dp).semantics { contentDescription = "Saved" }, Ink.ember)
+            val prog = App.progressFraction(story.id)
+            if (prog > 0f && !done) ThinBar(prog, Modifier.align(Alignment.BottomCenter).padding(horizontal = 14.dp, vertical = 12.dp))
         }
         Text(
             story.title,
@@ -202,7 +204,7 @@ fun Modifier.bounceClick(label: String? = null, onClick: () -> Unit): Modifier =
     )
 }
 
-enum class Glyph { PLAY, PAUSE, PREV, NEXT, BACK15, FWD15, MOON }
+enum class Glyph { PLAY, PAUSE, PREV, NEXT, BACK15, FWD15, MOON, DOWNLOAD, CHECK }
 
 /** Transport icons drawn by hand (the icon pack in use has no pause or skip). */
 @Composable
@@ -231,6 +233,18 @@ fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 28.dp, description: String? 
                     val p = Path().apply { moveTo(w * 0.86f, h * 0.18f); lineTo(w * 0.3f, h * 0.5f); lineTo(w * 0.86f, h * 0.82f); close() }
                     drawPath(p, tint)
                     drawRoundRect(tint, Offset(w * 0.14f, h * 0.18f), Size(w * 0.12f, h * 0.64f), CornerRadius(w * 0.04f))
+                }
+                Glyph.DOWNLOAD -> {
+                    val sw = w * 0.1f
+                    drawLine(tint, Offset(w * 0.5f, h * 0.14f), Offset(w * 0.5f, h * 0.62f), sw, StrokeCap.Round)
+                    drawLine(tint, Offset(w * 0.3f, h * 0.44f), Offset(w * 0.5f, h * 0.64f), sw, StrokeCap.Round)
+                    drawLine(tint, Offset(w * 0.7f, h * 0.44f), Offset(w * 0.5f, h * 0.64f), sw, StrokeCap.Round)
+                    drawLine(tint, Offset(w * 0.2f, h * 0.84f), Offset(w * 0.8f, h * 0.84f), sw, StrokeCap.Round)
+                }
+                Glyph.CHECK -> {
+                    val sw = w * 0.11f
+                    drawLine(tint, Offset(w * 0.18f, h * 0.54f), Offset(w * 0.4f, h * 0.74f), sw, StrokeCap.Round)
+                    drawLine(tint, Offset(w * 0.4f, h * 0.74f), Offset(w * 0.84f, h * 0.26f), sw, StrokeCap.Round)
                 }
                 Glyph.MOON -> {
                     val outer = Path().apply { addOval(Rect(Offset(w * 0.12f, h * 0.12f), Size(w * 0.76f, h * 0.76f))) }
