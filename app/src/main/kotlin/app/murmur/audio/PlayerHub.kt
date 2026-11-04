@@ -23,6 +23,7 @@ import androidx.media3.session.SessionToken
 import app.murmur.App
 import app.murmur.data.Activity
 import app.murmur.data.Downloads
+import app.murmur.data.History
 import app.murmur.data.Listen
 import app.murmur.data.Story
 import kotlinx.coroutines.Job
@@ -618,7 +619,7 @@ object PlayerHub {
                     if (acc >= 10_000) {
                         acc = 0
                         App.addListening(10)
-                        current?.let { Activity.record(it, 10) }
+                        current?.let { Activity.record(it, 10); History.record(it, 10) }
                         saveProgress()
                     }
                 }

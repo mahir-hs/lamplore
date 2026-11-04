@@ -187,7 +187,7 @@ private fun Root() {
                     Screen.LIBRARY -> LibraryScreen(::open) { screen = Screen.ADD }
                     Screen.LISTEN -> ListenScreen(::open)
                     Screen.ADD -> AddStoryScreen(onSaved = ::open, onBack = { screen = Screen.LIBRARY })
-                    Screen.SETTINGS -> SettingsScreen(onAbout = { screen = Screen.ABOUT })
+                    Screen.SETTINGS -> SettingsScreen(onAbout = { screen = Screen.ABOUT }, onPlay = ::open)
                     Screen.ABOUT -> AboutScreen(onBack = { screen = Screen.SETTINGS })
                     Screen.PLAYER -> PlayerScreen({ screen = origin }, { screen = Screen.DONE })
                     Screen.PAUSE -> PauseScreen({ screen = Screen.HOME }, ::open)

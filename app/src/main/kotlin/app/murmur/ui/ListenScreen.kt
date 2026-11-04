@@ -46,7 +46,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import app.murmur.data.History
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -144,6 +146,7 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
             Column(Modifier.padding(horizontal = 22.dp)) {
                 Text("Listen", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
                 Quiet("Free audiobooks and podcasts. Stream them, or save them for offline.", Modifier.padding(top = 4.dp))
+                if (App.incognito) Text("Incognito: nothing you listen to is recorded.", style = MaterialTheme.typography.labelMedium, color = Ink.ember, modifier = Modifier.padding(top = 4.dp))
                 FlowRow(horizontalArrangement = spacedRow, modifier = Modifier.padding(top = 10.dp)) {
                     Pill("Audiobooks", kind == Kind.BOOKS) { kind = Kind.BOOKS }
                     Pill("Podcasts", kind == Kind.PODCASTS) { kind = Kind.PODCASTS }
@@ -254,8 +257,9 @@ private fun SeeAll(def: ShelfDef, onOpen: (Item) -> Unit, onBack: () -> Unit) {
 
 @Composable
 private fun ItemTile(item: Item, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.bounceClick("Open ${item.title}", onClick)) {
-        ItemArt(item, Modifier.fillMaxWidth().aspectRatio(0.8f))
+    val seen = History.seen(item.key)
+    Column(modifier.alpha(if (seen) 0.6f else 1f).bounceClick("Open ${item.title}", onClick)) {
+        ItemArt(item, Modifier.fillMaxWidth().aspectRatio(0.8f), seen = seen)
         Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
         if (item.author.isNotBlank()) Text(item.author, style = MaterialTheme.typography.labelSmall, color = Ink.dusk, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
@@ -263,23 +267,30 @@ private fun ItemTile(item: Item, modifier: Modifier, onClick: () -> Unit) {
 
 /** Cover on the same paper mat as the story covers; a plain tile with the initial while it loads. */
 @Composable
-fun ItemArt(item: Item, modifier: Modifier, corner: Dp = 10.dp, mat: Dp = 4.dp) {
+fun ItemArt(item: Item, modifier: Modifier, corner: Dp = 10.dp, mat: Dp = 4.dp, seen: Boolean = false) {
     Box(modifier.clip(RoundedCornerShape(corner)).background(Ink.paper).padding(mat)) {
         RemoteImage(item.art, Modifier.fillMaxSize().clip(RoundedCornerShape((corner - mat).coerceAtLeast(2.dp)))) {
             Box(Modifier.fillMaxSize().background(Ink.lampHigh), contentAlignment = Alignment.Center) {
                 Text(item.title.take(1).uppercase(), style = MaterialTheme.typography.displaySmall, color = Ink.dusk)
             }
         }
+        if (seen) {
+            Text(
+                "Heard", style = MaterialTheme.typography.labelSmall, color = Ink.moth,
+                modifier = Modifier.align(Alignment.TopStart).padding(5.dp).background(Ink.night.copy(alpha = 0.8f), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
     }
 }
 
 @Composable
 fun ItemRow(item: Item, onClick: () -> Unit) {
+    val seen = History.seen(item.key)
     Row(
-        Modifier.fillMaxWidth().bounceClick("Open ${item.title}", onClick).padding(horizontal = 20.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().alpha(if (seen) 0.6f else 1f).bounceClick("Open ${item.title}", onClick).padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ItemArt(item, Modifier.width(56.dp).aspectRatio(0.8f), corner = 8.dp, mat = 3.dp)
+        ItemArt(item, Modifier.width(56.dp).aspectRatio(0.8f), corner = 8.dp, mat = 3.dp, seen = seen)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)

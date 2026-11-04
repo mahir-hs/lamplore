@@ -55,6 +55,9 @@ object App {
     var music by mutableStateOf(MusicMood.CALM)
     var musicVolume by mutableFloatStateOf(0.22f)
 
+    /** Incognito: nothing is added to history, activity, "seen" marks or Continue lists. */
+    var incognito by mutableStateOf(false)
+
     /** Show the words being read under the picture. */
     var subtitles by mutableStateOf(true)
     var todaySeconds by mutableIntStateOf(0)
@@ -82,6 +85,7 @@ object App {
         music = runCatching { MusicMood.valueOf(prefs.getString("music", "CALM") ?: "CALM") }.getOrDefault(MusicMood.CALM)
         musicVolume = prefs.getFloat("musicVol", 0.22f)
         subtitles = prefs.getBoolean("subtitles", true)
+        incognito = prefs.getBoolean("incognito", false)
 
         favorites.addAll(prefs.getStringSet("fav", emptySet()) ?: emptySet())
         completed.addAll(prefs.getStringSet("completed", emptySet()) ?: emptySet())
@@ -106,6 +110,8 @@ object App {
         stories.addAll(SeedStories.all)
         stories.addAll(loadUserStories())
         app.murmur.data.Listen.init()
+        app.murmur.data.History.init()
+        app.murmur.data.Backup.autoIfDue(context)
         app.murmur.data.Downloads.init()
         app.murmur.data.RemoteContent.refresh()
         app.murmur.ai.AiModels.init(context)
@@ -144,6 +150,7 @@ object App {
             .putString("music", music.name)
             .putFloat("musicVol", musicVolume)
             .putBoolean("subtitles", subtitles)
+            .putBoolean("incognito", incognito)
             .apply()
         PlayerHub.applyParams()
     }
@@ -250,6 +257,7 @@ object App {
 
     // ---- wellbeing -----------------------------------------------------------------------------
     fun addListening(seconds: Int) {
+        if (incognito) return
         val t = today()
         listen[t] = (listen[t] ?: 0) + seconds
         todaySeconds = listen[t] ?: 0

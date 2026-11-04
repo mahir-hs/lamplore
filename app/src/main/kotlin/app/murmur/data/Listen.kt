@@ -73,6 +73,7 @@ object Listen {
                 o.getString("id"), o.getString("title"), o.getString("author"), o.getString("category"), o.optString("summary"),
                 (0 until t.length()).map { k -> t.getJSONObject(k).let { Track(it.getString("t"), it.getString("u"), it.getInt("s")) } },
                 o.optString("art"),
+                o.optJSONArray("tags")?.let { g -> (0 until g.length()).map { g.getString(it) } } ?: emptyList(),
             )
         }
     }
@@ -82,7 +83,7 @@ object Listen {
         list.forEach { r ->
             a.put(
                 JSONObject().put("id", r.id).put("title", r.title).put("author", r.author)
-                    .put("category", r.category).put("summary", r.summary).put("art", r.art)
+                    .put("category", r.category).put("summary", r.summary).put("art", r.art).put("tags", JSONArray(r.tags))
                     .put("tracks", JSONArray().also { ta -> r.tracks.forEach { ta.put(JSONObject().put("t", it.title).put("u", it.url).put("s", it.seconds)) } }),
             )
         }
@@ -91,7 +92,7 @@ object Listen {
 
     /** Remember a stream that was just started (moves it to the top). */
     fun remember(s: Story) {
-        if (!s.isStream) return
+        if (!s.isStream || App.incognito) return
         recent.removeAll { it.id == s.id }
         recent.add(0, s)
         while (recent.size > 30) recent.removeAt(recent.size - 1)
@@ -107,11 +108,11 @@ object Listen {
         prefs.edit().putString("recent", encode(recent)).apply()
     }
 
-    fun stream(id: String, title: String, author: String, category: String, summary: String, tracks: List<Track>, art: String = "") = Story(
+    fun stream(id: String, title: String, author: String, category: String, summary: String, tracks: List<Track>, art: String = "", tags: List<String> = emptyList()) = Story(
         id = id, title = title, author = author, category = category, moods = setOf("calm"),
         summary = summary, body = "",
         rights = if (category == Categories.PODCASTS) "Streamed from the publisher's feed" else "Free recording hosted by the Internet Archive (LibriVox is public domain)",
-        tracks = tracks, art = art,
+        tracks = tracks, art = art, tags = tags,
     )
 
     // ---- Browsing ------------------------------------------------------------------------------
@@ -200,7 +201,15 @@ object Listen {
             val desc = m?.opt("description")?.let { if (it is JSONArray) it.optString(0) else it.toString() }.orEmpty()
                 .replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim()
             val radio = m?.opt("collection").toString().contains("oldtimeradio")
-            stream(item.key, item.title, item.author.ifBlank { "Unknown" }, if (radio) "Old-time radio" else Categories.AUDIOBOOKS, desc, tracks, item.art)
+            val subjects = m?.opt("subject").let { sj ->
+                when (sj) {
+                    is JSONArray -> (0 until sj.length()).map { sj.getString(it) }
+                    is String -> sj.split(';', ',')
+                    else -> emptyList()
+                }
+            }
+            val tags = subjects.mapNotNull { cleanTag(it) }.distinct().take(8)
+            stream(item.key, item.title, item.author.ifBlank { "Unknown" }, if (radio) "Old-time radio" else Categories.AUDIOBOOKS, desc, tracks, item.art, tags)
                 .also { synchronized(bookCache) { bookCache[item.ref] = it } }
         }.getOrNull()
     }

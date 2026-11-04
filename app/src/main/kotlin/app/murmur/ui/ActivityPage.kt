@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.murmur.App
 import app.murmur.data.Activity
+import app.murmur.data.History
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -128,29 +129,31 @@ fun ColumnScope.ActivityPage() {
         }
     }
 
-    // ---- history
-    Heading("History")
-    val history = Activity.history()
-    if (history.isEmpty()) {
-        Quiet("What you listen to will be listed here.", Modifier.padding(top = 4.dp))
-    } else {
-        var last: LocalDate? = null
-        history.forEach { r ->
-            if (r.date != last) {
-                last = r.date
-                Text(dayLabel(r.date, today), style = MaterialTheme.typography.labelLarge, color = Ink.dusk, modifier = Modifier.padding(top = 14.dp, bottom = 2.dp))
-            }
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(topicColor(r.topic)))
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(r.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                    Quiet(r.topic)
-                }
-                Text(fmtTime(r.seconds), style = MaterialTheme.typography.labelMedium, color = Ink.dusk)
-            }
-        }
-    }
+    // ---- weekday and hour
+    Heading("By weekday")
+    Quiet("Average minutes on each day, over the last 12 weeks.")
+    val wd = Activity.weekdayMinutes(12)
+    MiniBars(
+        wd, listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), "Average minutes per weekday: " + wd.joinToString(),
+        Modifier.padding(top = 8.dp),
+    )
+    Heading("By time of day")
+    val hs = Activity.hourSeconds().map { it / 60 }
+    MiniBars(
+        hs, (0 until 24).map { if (it % 6 == 0) "$it" else "" }, "Minutes listened in each hour of the day",
+        Modifier.padding(top = 8.dp),
+    )
+    Quiet("Hour of the day, 0 to 23. Counted from when this update was installed.", Modifier.padding(top = 2.dp))
+
+    // ---- erase
+    Heading("Erase")
+    var sure by remember { mutableStateOf(false) }
+    Quiet("History only hides entries. This is the one button that really deletes your history, activity and \"heard\" marks.")
+    Text(
+        if (sure) "Tap again to delete everything" else "Delete all activity data",
+        style = MaterialTheme.typography.labelLarge, color = if (sure) Ink.ember else Ink.dusk,
+        modifier = Modifier.bounceClick("Delete all activity data") { if (sure) { History.deleteEverything(); sure = false } else sure = true }.padding(vertical = 14.dp),
+    )
     if (tick < 0) Spacer(Modifier.height(0.dp)) // keeps `tick` read so the page refreshes while listening
 }
 
@@ -256,14 +259,14 @@ private fun Heatmap(today: LocalDate) {
 }
 
 @Composable
-private fun TopicBar(topic: String, seconds: Int, fraction: Float, percent: Int) {
+fun TopicBar(topic: String, seconds: Int, fraction: Float, percent: Int, color: Color = topicColor(topic)) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(topic, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             Text("${fmtTime(seconds)}  ·  $percent%", style = MaterialTheme.typography.labelMedium, color = Ink.dusk)
         }
         Box(Modifier.padding(top = 5.dp).fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Ink.lamp)) {
-            Box(Modifier.fillMaxWidth(fraction.coerceIn(0.02f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(topicColor(topic)))
+            Box(Modifier.fillMaxWidth(fraction.coerceIn(0.02f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
         }
     }
 }

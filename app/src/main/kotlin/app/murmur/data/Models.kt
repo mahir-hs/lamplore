@@ -17,6 +17,8 @@ data class Story(
     val tracks: List<Track> = emptyList(),
     /** Cover picture link for streamed audio (blank = drawn cover). */
     val art: String = "",
+    /** Genre words for recorded audio (from the Internet Archive); used for "your taste". */
+    val tags: List<String> = emptyList(),
 ) {
     val isStream: Boolean get() = tracks.isNotEmpty()
     val artMotif: Motif get() = motif ?: Motif.guess(title, body)

@@ -52,6 +52,9 @@ import app.murmur.audio.VoicePacks
 
 private enum class Page(val title: String) {
     ACTIVITY("Your activity"),
+    HISTORY("History"),
+    TASTE("Your taste"),
+    BACKUP("Backup and restore"),
     VOICES("Voices"),
     READING("How stories are read"),
     PHONE("Your phone and AI"),
@@ -63,13 +66,16 @@ private enum class Page(val title: String) {
  * You. A short hub: your week, then one row per area. Each area is its own page, so nothing here is a long scroll.
  */
 @Composable
-fun SettingsScreen(onAbout: () -> Unit) {
+fun SettingsScreen(onAbout: () -> Unit, onPlay: (app.murmur.data.Story) -> Unit = {}) {
     var page by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != null) { page = null }
     val current = page?.let { name -> Page.entries.firstOrNull { it.name == name } }
     when (current) {
         null -> Hub(onOpen = { page = it.name }, onAbout = onAbout)
         Page.ACTIVITY -> PageFrame(current.title, { page = null }) { ActivityPage() }
+        Page.HISTORY -> PageFrame(current.title, { page = null }) { HistoryPage(onPlay) }
+        Page.TASTE -> PageFrame(current.title, { page = null }) { TastePage() }
+        Page.BACKUP -> PageFrame(current.title, { page = null }) { BackupPage() }
         Page.VOICES -> PageFrame(current.title, { page = null }) { VoicesPage() }
         Page.READING -> PageFrame(current.title, { page = null }) { ReadingPage() }
         Page.PHONE -> PageFrame(current.title, { page = null }) { PhoneCheckSection() }
@@ -100,7 +106,10 @@ private fun Hub(onOpen: (Page) -> Unit, onAbout: () -> Unit) {
         GoalBlock()
 
         Heading("Activity")
-        HubRow("Your activity", "${app.murmur.data.Activity.seconds(java.time.LocalDate.now()) / 60} min today, overview, heatmap, history") { onOpen(Page.ACTIVITY) }
+        HubRow("Your activity", "${app.murmur.data.Activity.seconds(java.time.LocalDate.now()) / 60} min today, heatmap, charts") { onOpen(Page.ACTIVITY) }
+        HubRow("History", "${app.murmur.data.History.visible().size} titles, with how far you got") { onOpen(Page.HISTORY) }
+        HubRow("Your taste", "Top genres, authors and what you come back to") { onOpen(Page.TASTE) }
+        DirectorSwitch("Incognito", "Nothing you listen to is added to history, activity or \"heard\" marks.", App.incognito) { App.incognito = it; App.saveSettings() }
 
         Heading("Settings")
         HubRow("Voices", narratorSummary()) { onOpen(Page.VOICES) }
@@ -108,6 +117,7 @@ private fun Hub(onOpen: (Page) -> Unit, onAbout: () -> Unit) {
         HubRow("Your phone and AI", aiSummary()) { onOpen(Page.PHONE) }
         HubRow("Storage and books", storageSummary()) { onOpen(Page.STORAGE) }
         if (App.reflections.isNotEmpty()) HubRow("Your notes", "${App.reflections.size} saved") { onOpen(Page.NOTES) }
+        HubRow("Backup and restore", if (app.murmur.data.Backup.intervalDays > 0) "Automatic backup on" else "Save everything to a file") { onOpen(Page.BACKUP) }
         HubRow("About and credits", "Version 0.4", onAbout)
         Spacer(Modifier.height(36.dp))
     }
