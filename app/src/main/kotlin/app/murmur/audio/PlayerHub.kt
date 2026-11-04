@@ -25,7 +25,9 @@ import app.murmur.data.Activity
 import app.murmur.data.Downloads
 import app.murmur.data.History
 import app.murmur.data.Listen
+import app.murmur.data.Cue
 import app.murmur.data.Story
+import app.murmur.data.Transcripts
 import app.murmur.data.Subs
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -73,6 +75,33 @@ object PlayerHub {
     var caption by mutableStateOf("")
         private set
     private val sentenceCache = HashMap<Int, List<String>>()
+
+    /** Timed transcript of the episode being played, if it has one. */
+    private var cues: List<Cue> = emptyList()
+    var hasTranscript by mutableStateOf(false)
+        private set
+
+    /** Position of the moment now playing, for bookmarks. */
+    fun momentIndex(): Int = base + (exo?.currentMediaItemIndex ?: 0)
+    fun momentPosMs(): Long = exo?.currentPosition ?: 0L
+    fun momentLabel(): String =
+        if (streaming) current?.tracks?.getOrNull(momentIndex())?.title.orEmpty() else segments.getOrNull(momentIndex())?.text?.take(70).orEmpty()
+
+    /** Jump to a saved moment: seek if the story is already loaded, otherwise start it there. */
+    fun jumpTo(story: Story, index: Int, posMs: Long) {
+        val p = player
+        if (current?.id == story.id && p.mediaItemCount > 0) {
+            val local = index - base
+            if (local in 0 until p.mediaItemCount) { p.seekTo(local, posMs); p.play(); return }
+        }
+        App.saveProgress(story.id, index, posMs)
+        play(story)
+    }
+
+    private fun updateTranscriptCaption(p: ExoPlayer) {
+        val line = Transcripts.at(cues, p.currentPosition)
+        if (line != caption) caption = line
+    }
 
     /** Sentences, with long ones cut at commas so a subtitle stays short enough to read at a glance. */
     private fun splitSentences(t: String): List<String> =
@@ -314,6 +343,14 @@ object PlayerHub {
         status = "Loading..."
         Listen.remember(story)
         Subs.markRead(story.id)
+        cues = emptyList()
+        hasTranscript = false
+        if (story.transcript.isNotBlank() && story.tracks.size == 1) {
+            App.scope.launch {
+                val c = Transcripts.load(story.transcript)
+                if (current?.id == story.id && c.isNotEmpty()) { cues = c; hasTranscript = true }
+            }
+        }
     }
 
     /** Start a recorded book at a chosen chapter. */
@@ -585,6 +622,8 @@ object PlayerHub {
         stopInternal()
         current = null
         streaming = false
+        cues = emptyList()
+        hasTranscript = false
         plan = null
         segments = emptyList()
         status = ""
@@ -605,7 +644,9 @@ object PlayerHub {
                         applyParams()
                     }
                     part = base + idx
-                    if (!streaming && App.subtitles) updateCaption(p) else if (caption.isNotEmpty()) caption = ""
+                    if (App.subtitles && !streaming) updateCaption(p)
+                    else if (App.subtitles && streaming && cues.isNotEmpty() && p.mediaItemCount == 1) updateTranscriptCaption(p)
+                    else if (caption.isNotEmpty()) caption = ""
                     if (streaming) {
                         if (p.duration > 0 && idx < estSec.size) estSec[idx] = p.duration / 1000.0
                         if (p.isPlaying && status == "Loading...") status = ""

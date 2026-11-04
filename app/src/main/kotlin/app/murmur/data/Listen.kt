@@ -83,13 +83,23 @@ object Listen {
             (0 until t.length()).map { k -> t.getJSONObject(k).let { Track(it.getString("t"), it.getString("u"), it.getInt("s")) } },
             o.optString("art"),
             o.optJSONArray("tags")?.let { g -> (0 until g.length()).map { g.getString(it) } } ?: emptyList(),
+            o.optString("transcript"),
         )
     }
 
     fun storyToJson(r: Story): JSONObject =
         JSONObject().put("id", r.id).put("title", r.title).put("author", r.author)
-            .put("category", r.category).put("summary", r.summary).put("art", r.art).put("tags", JSONArray(r.tags))
+            .put("category", r.category).put("summary", r.summary).put("art", r.art).put("tags", JSONArray(r.tags)).put("transcript", r.transcript)
             .put("tracks", JSONArray().also { ta -> r.tracks.forEach { ta.put(JSONObject().put("t", it.title).put("u", it.url).put("s", it.seconds)) } })
+
+    /** Find a story by id: a built-in one, something played or downloaded, or an audiobook to fetch again. */
+    suspend fun find(id: String, title: String, author: String, art: String): Story? {
+        App.stories.firstOrNull { it.id == id }?.let { return it }
+        recent.firstOrNull { it.id == id }?.let { return it }
+        Downloads.saved.firstOrNull { it.id == id }?.let { return it }
+        if (id.startsWith("ia_")) return book(Item(id, title, author, art, id.removePrefix("ia_"), false))
+        return null
+    }
 
     /** Remember a stream that was just started (moves it to the top). */
     fun remember(s: Story) {
@@ -109,11 +119,11 @@ object Listen {
         prefs.edit().putString("recent", encode(recent)).apply()
     }
 
-    fun stream(id: String, title: String, author: String, category: String, summary: String, tracks: List<Track>, art: String = "", tags: List<String> = emptyList()) = Story(
+    fun stream(id: String, title: String, author: String, category: String, summary: String, tracks: List<Track>, art: String = "", tags: List<String> = emptyList(), transcript: String = "") = Story(
         id = id, title = title, author = author, category = category, moods = setOf("calm"),
         summary = summary, body = "",
         rights = if (category == Categories.PODCASTS) "Streamed from the publisher's feed" else "Free recording hosted by the Internet Archive (LibriVox is public domain)",
-        tracks = tracks, art = art, tags = tags,
+        tracks = tracks, art = art, tags = tags, transcript = transcript,
     )
 
     // ---- Browsing ------------------------------------------------------------------------------
@@ -250,11 +260,13 @@ object Listen {
                 val out = mutableListOf<Story>()
                 var inItem = false
                 var title = ""; var url = ""; var dur = 0; var desc = ""
+                val trans = mutableListOf<Pair<String, String>>()
                 var ev = p.eventType
                 while (ev != XmlPullParser.END_DOCUMENT && out.size < max) {
                     when (ev) {
                         XmlPullParser.START_TAG -> when (p.name) {
-                            "item" -> { inItem = true; title = ""; url = ""; dur = 0; desc = "" }
+                            "item" -> { inItem = true; title = ""; url = ""; dur = 0; desc = ""; trans.clear() }
+                            "podcast:transcript" -> if (inItem) trans += p.getAttributeValue(null, "url").orEmpty() to p.getAttributeValue(null, "type").orEmpty()
                             "title" -> if (inItem) title = p.nextText().trim()
                             "enclosure" -> if (inItem) url = p.getAttributeValue(null, "url").orEmpty()
                             "itunes:duration" -> if (inItem) dur = duration(p.nextText())
@@ -265,7 +277,7 @@ object Listen {
                             if (url.isNotBlank() && title.isNotBlank()) {
                                 out += stream(
                                     "pe_${(show.ref + url).hashCode().toUInt()}", title, show.title, Categories.PODCASTS, desc.take(160),
-                                    listOf(Track(title, url.replace("http://", "https://"), dur)), show.art,
+                                    listOf(Track(title, url.replace("http://", "https://"), dur)), show.art, emptyList(), Transcripts.choose(trans),
                                 )
                             }
                         }

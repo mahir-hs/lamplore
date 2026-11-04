@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -87,7 +87,7 @@ import app.murmur.ui.SettingsScreen
 
 enum class Screen { HOME, LIBRARY, LISTEN, ADD, SETTINGS, ABOUT, PLAYER, PAUSE, DONE }
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -105,7 +105,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        app.murmur.data.Lock.onReturn()
+    }
+
     override fun onStop() {
+        app.murmur.data.Lock.onLeave()
         PlayerHub.saveProgress()
         super.onStop()
     }
@@ -113,6 +119,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun Root() {
+    if (app.murmur.data.Lock.locked) {
+        app.murmur.ui.LockScreen()
+        return
+    }
     // first run: offer a better voice before anything else
     if (!App.onboarded) {
         WelcomeScreen(onDone = { App.finishOnboarding() })
@@ -187,7 +197,7 @@ private fun Root() {
                     Screen.LIBRARY -> LibraryScreen(::open) { screen = Screen.ADD }
                     Screen.LISTEN -> ListenScreen(::open)
                     Screen.ADD -> AddStoryScreen(onSaved = ::open, onBack = { screen = Screen.LIBRARY })
-                    Screen.SETTINGS -> SettingsScreen(onAbout = { screen = Screen.ABOUT }, onPlay = ::open)
+                    Screen.SETTINGS -> SettingsScreen(onAbout = { screen = Screen.ABOUT }, onPlay = ::open, onShowPlayer = { showPlayer() })
                     Screen.ABOUT -> AboutScreen(onBack = { screen = Screen.SETTINGS })
                     Screen.PLAYER -> PlayerScreen({ screen = origin }, { screen = Screen.DONE })
                     Screen.PAUSE -> PauseScreen({ screen = Screen.HOME }, ::open)

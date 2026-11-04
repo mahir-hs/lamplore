@@ -140,6 +140,7 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
     }
 
     var sheet by remember { mutableStateOf(Sheet.NONE) }
+    var bookmarking by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var sleepIdx by remember { mutableIntStateOf(if (PlayerHub.sleepLeftMs > 0) 1 else 0) }
 
@@ -151,6 +152,17 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
     val dim by animateFloatAsState(if (PlayerHub.finished) 0.6f else 0f, tween(1800), label = "dim")
     val saved = story.id in App.favorites
 
+    if (bookmarking) {
+        // capture the moment now, not when the note is saved
+        val idx = remember { PlayerHub.momentIndex() }
+        val pos = remember { PlayerHub.momentPosMs() }
+        val label = remember { PlayerHub.momentLabel() }
+        NoteDialog("Bookmark this moment", "", { note ->
+            app.murmur.data.Bookmarks.add(story, idx, pos, label, note)
+            bookmarking = false
+            Toast.makeText(ctx, "Bookmarked.", Toast.LENGTH_SHORT).show()
+        }, { bookmarking = false })
+    }
     Column(Modifier.fillMaxSize().padding(bottom = 14.dp)) {
         // ---- top bar
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -184,7 +196,8 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
                     if (!story.isStream) MenuRow("Change voice") { menu = false; sheet = Sheet.VOICE }
                     MenuRow(if (story.isStream) "Speed and sleep timer" else "Tune this story") { menu = false; sheet = Sheet.TUNE }
                     if (!story.isStream) MenuRow("How it is being read") { menu = false; sheet = Sheet.DIRECTOR }
-                    if (!story.isStream) MenuRow(if (App.subtitles) "Hide subtitles" else "Show subtitles") { menu = false; App.subtitles = !App.subtitles; App.saveSettings() }
+                    MenuRow("Bookmark this moment") { menu = false; bookmarking = true }
+                    if (!story.isStream || PlayerHub.hasTranscript) MenuRow(if (App.subtitles) "Hide subtitles" else "Show subtitles") { menu = false; App.subtitles = !App.subtitles; App.saveSettings() }
                     if (story.plates.isNotEmpty()) MenuRow("Pictures from the book") { menu = false; sheet = Sheet.PICTURES }
                     MenuRow("Restart story") { menu = false; PlayerHub.restart() }
                     MenuRow("Report this story") {
@@ -212,7 +225,7 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
                     Brush.verticalGradient(0f to Color(0xFF0D1638), 0.22f to Color(0xFF0D1638).copy(alpha = 0.0f), 0.72f to Color.Transparent, 1f to Ink.night),
                 ),
             )
-            val captions = App.subtitles && !story.isStream
+            val captions = App.subtitles && (!story.isStream || PlayerHub.hasTranscript)
             if (story.plates.isNotEmpty()) {
                 // a picture book: the plates stay on screen and turn over as the story moves on
                 PictureBook(story.plates, PlayerHub.fraction, Modifier.matchParentSize().padding(top = 6.dp, bottom = if (captions) 100.dp else 8.dp, start = 14.dp, end = 14.dp)) { sheet = Sheet.PICTURES }

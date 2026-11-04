@@ -48,11 +48,7 @@ import java.util.Locale
 
 /** Find the story behind a history entry: a built-in story, something played or downloaded, or a book to fetch again. */
 private suspend fun resolve(h: HistoryItem): Story? {
-    App.stories.firstOrNull { it.id == h.id }?.let { return it }
-    Listen.recent.firstOrNull { it.id == h.id }?.let { return it }
-    Downloads.saved.firstOrNull { it.id == h.id }?.let { return it }
-    if (h.id.startsWith("ia_")) return Listen.book(Item(h.id, h.title, h.author, h.art, h.id.removePrefix("ia_"), false))
-    return null
+    return Listen.find(h.id, h.title, h.author, h.art)
 }
 
 private fun whenText(ms: Long): String {

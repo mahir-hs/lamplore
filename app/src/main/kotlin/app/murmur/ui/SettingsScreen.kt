@@ -56,6 +56,10 @@ private enum class Page(val title: String) {
     TASTE("Your taste"),
     BACKUP("Backup and restore"),
     DOWNLOADS("Downloads and updates"),
+    BOOKMARKS("Bookmarks"),
+    LOOK("Look and lock"),
+    STORAGE_MGR("Storage manager"),
+    DIAGNOSTICS("Diagnostics"),
     VOICES("Voices"),
     READING("How stories are read"),
     PHONE("Your phone and AI"),
@@ -67,7 +71,7 @@ private enum class Page(val title: String) {
  * You. A short hub: your week, then one row per area. Each area is its own page, so nothing here is a long scroll.
  */
 @Composable
-fun SettingsScreen(onAbout: () -> Unit, onPlay: (app.murmur.data.Story) -> Unit = {}) {
+fun SettingsScreen(onAbout: () -> Unit, onPlay: (app.murmur.data.Story) -> Unit = {}, onShowPlayer: () -> Unit = {}) {
     var page by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != null) { page = null }
     val current = page?.let { name -> Page.entries.firstOrNull { it.name == name } }
@@ -78,6 +82,10 @@ fun SettingsScreen(onAbout: () -> Unit, onPlay: (app.murmur.data.Story) -> Unit 
         Page.TASTE -> PageFrame(current.title, { page = null }) { TastePage() }
         Page.BACKUP -> PageFrame(current.title, { page = null }) { BackupPage() }
         Page.DOWNLOADS -> PageFrame(current.title, { page = null }) { DownloadSettingsPage() }
+        Page.BOOKMARKS -> PageFrame(current.title, { page = null }) { BookmarksPage(onShowPlayer) }
+        Page.LOOK -> PageFrame(current.title, { page = null }) { LookPage() }
+        Page.STORAGE_MGR -> PageFrame(current.title, { page = null }) { StorageManagerPage() }
+        Page.DIAGNOSTICS -> PageFrame(current.title, { page = null }) { DiagnosticsPage() }
         Page.VOICES -> PageFrame(current.title, { page = null }) { VoicesPage() }
         Page.READING -> PageFrame(current.title, { page = null }) { ReadingPage() }
         Page.PHONE -> PageFrame(current.title, { page = null }) { PhoneCheckSection() }
@@ -110,6 +118,7 @@ private fun Hub(onOpen: (Page) -> Unit, onAbout: () -> Unit) {
         Heading("Activity")
         HubRow("Your activity", "${app.murmur.data.Activity.seconds(java.time.LocalDate.now()) / 60} min today, heatmap, charts") { onOpen(Page.ACTIVITY) }
         HubRow("History", "${app.murmur.data.History.visible().size} titles, with how far you got") { onOpen(Page.HISTORY) }
+        HubRow("Bookmarks", "${app.murmur.data.Bookmarks.items.size} saved moments") { onOpen(Page.BOOKMARKS) }
         HubRow("Your taste", "Top genres, authors and what you come back to") { onOpen(Page.TASTE) }
         DirectorSwitch("Incognito", "Nothing you listen to is added to history, activity or \"heard\" marks.", App.incognito) { App.incognito = it; App.saveSettings() }
 
@@ -121,6 +130,9 @@ private fun Hub(onOpen: (Page) -> Unit, onAbout: () -> Unit) {
         if (App.reflections.isNotEmpty()) HubRow("Your notes", "${App.reflections.size} saved") { onOpen(Page.NOTES) }
         HubRow("Downloads and updates", "${app.murmur.data.Downloads.saved.size} saved, ${app.murmur.data.Subs.shows.size} followed" + if (app.murmur.data.Downloads.wifiOnly) ", Wi-Fi only" else "") { onOpen(Page.DOWNLOADS) }
         HubRow("Backup and restore", if (app.murmur.data.Backup.intervalDays > 0) "Automatic backup on" else "Save everything to a file") { onOpen(Page.BACKUP) }
+        HubRow("Look and lock", if (app.murmur.data.Lock.enabled) "Black or midnight, accent, lock is on" else "Background, accent colour, app lock") { onOpen(Page.LOOK) }
+        HubRow("Storage manager", "Per-title sizes and bulk delete") { onOpen(Page.STORAGE_MGR) }
+        HubRow("Diagnostics", if (app.murmur.data.Crash.last(androidx.compose.ui.platform.LocalContext.current) != null) "A crash was recorded" else "Device info and the last crash") { onOpen(Page.DIAGNOSTICS) }
         HubRow("About and credits", "Version 0.4", onAbout)
         Spacer(Modifier.height(36.dp))
     }

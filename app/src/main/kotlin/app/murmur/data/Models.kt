@@ -19,6 +19,8 @@ data class Story(
     val art: String = "",
     /** Genre words for recorded audio (from the Internet Archive); used for "your taste". */
     val tags: List<String> = emptyList(),
+    /** "url|type" of a timed transcript for this episode, or "". */
+    val transcript: String = "",
 ) {
     val isStream: Boolean get() = tracks.isNotEmpty()
     val artMotif: Motif get() = motif ?: Motif.guess(title, body)
