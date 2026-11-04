@@ -66,7 +66,7 @@ object LlmDirector {
             "$backend: did not work. ${error ?: ""}".trim()
         } else {
             "$backend: loads in ${fmt(loadSec)} s, then directs the story in ${fmt(totalSec)} s. " +
-                (if (validJson) "The answer was valid and covered $paragraphsAnswered of $paragraphsAsked paragraphs."
+                (if (validJson) "The answer had the right format for $paragraphsAnswered of $paragraphsAsked paragraphs. Experimental: its choices are not good enough yet, so stories still use the built-in Director."
                 else "The answer was not valid, so the AI Director would fall back to its rules.")
         }
 

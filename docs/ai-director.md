@@ -36,3 +36,21 @@ settings changes), that data can train a small classifier that replaces the LLM 
 ```json
 {"p":[{"s":"forest","m":"calm","pace":0.95}], "q":[{"i":0,"g":"female"}]}
 ```
+
+
+## Measured on a real phone (2026-11-04)
+Xiaomi 24115RA8EC: Snapdragon 7s Gen 3 (SM7635), 11 GB RAM, Android 16, LiteRT-LM 0.19.0, one fable
+(The Tortoise and the Hare, 9 paragraphs), JSON schema with exactly one entry per paragraph, temperature 0.
+
+| Model | Chip | Load | Answer | Result |
+|---|---|---|---|---|
+| Qwen3 0.6B | graphics (OpenCL) | 8 s | 4 to 13 s | valid JSON, but it just cycled the scene options in order, all "calm", pace 0.8 |
+| Qwen3 1.7B | graphics | 21 s | 27 s | valid JSON, but scenes and moods look arbitrary (rain, ocean for a meadow) |
+| Qwen3 1.7B | processor | 6 s | 70 s | valid JSON, but "none, calm, 0.8" for every paragraph |
+
+Findings:
+- The GPU needs `<uses-native-library android:name="libOpenCL.so" android:required="false"/>` in the manifest on Android 12+, or it fails with "Can not find OpenCL library".
+- Constrained JSON without `minItems` lets the model return an empty list; `minItems` = `maxItems` = paragraph count fixes the shape, not the quality.
+- Speed is fine on the graphics chip; quality is not. With one prompt over the whole story, neither size reads the story.
+- Decision: keep the rule-based Director for playback. The "Your phone and AI" page keeps the benchmark so the result can be re-checked.
+- Next experiments, cheapest first: classify one paragraph at a time with two or three worked examples; ask for the scene only; let the model break ties between the rules' top two scenes; a larger model or a cloud call (costs money and needs internet).
