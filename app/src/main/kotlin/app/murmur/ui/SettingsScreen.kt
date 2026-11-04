@@ -111,8 +111,14 @@ fun SettingsScreen() {
         Heading("Music volume")
         Slider(value = App.musicVolume, onValueChange = { App.musicVolume = it; PlayerHub.updateAmbience() }, onValueChangeFinished = { App.saveSettings() }, valueRange = 0f..0.8f, colors = sliderColors)
 
-        Heading("Faith")
-        DirectorSwitch("Islamic touches", "Off by default. Adds an Islamic greeting and a remembrance line on the Home and Pause screens.", App.faithTouches) { App.faithTouches = it; App.saveSettings() }
+        Heading("Online library")
+        var picBytes by remember { mutableLongStateOf(app.murmur.data.RemoteContent.cacheBytes()) }
+        Quiet(app.murmur.data.RemoteContent.status.ifBlank { "New books and illustrations are fetched from the internet, never bundled." })
+        Quiet("Pictures saved on this phone: ${"%.1f".format(picBytes / 1_048_576.0)} MB. Each is downloaded once, when you first open its story.", Modifier.padding(top = 4.dp))
+        Row {
+            TextButton(onClick = { app.murmur.data.RemoteContent.refresh() }) { Text("Check for new books", color = Ink.ember) }
+            TextButton(onClick = { app.murmur.data.RemoteContent.clearCache(); picBytes = 0L }) { Text("Clear pictures", color = Ink.ember) }
+        }
 
         Heading("Storage")
         Quiet("Story audio on this phone: ${"%.1f".format(bytes / 1_048_576.0)} MB. Downloaded voices: ${"%.0f".format(PackManager.diskBytes() / 1_048_576.0)} MB.")
@@ -120,7 +126,9 @@ fun SettingsScreen() {
         TextButton(onClick = { App.clearAudio(); bytes = App.audioBytes() }) { Text("Clear story audio", color = Ink.ember) }
 
         Heading("About")
-        Quiet("Murmur 0.3. Fables retold from Aesop, original sleep stories, and simplified faith narratives that should be reviewed by a qualified scholar before any public release. Voices by Piper and Kokoro through sherpa-onnx. Type: Fraunces and Manrope (SIL Open Font License).")
+        Quiet("Murmur 0.3. Fables retold from Aesop, original sleep stories, and folk tales and parables from around the world. Voices by Piper and Kokoro through sherpa-onnx. Type: Fraunces and Manrope (SIL Open Font License).")
+        Quiet("Illustrations: Walter Crane, The Baby's Own Aesop (1887), engraved by Edmund Evans, public domain, via Project Gutenberg #25433.")
+        Quiet("Online books: pictures by Arthur Rackham (Grimm's Fairy Tales, 1909) and Beatrix Potter (The Tale of Peter Rabbit, 1902), public domain, via Project Gutenberg #37381 and #14838.")
         Quiet("Music by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0. Field recordings by kvgarlic, stephan (pdsounds), udo noll, Jarrod Stanley, INNORECORDS, Evillan, Guillaume Capsowl Voisin, inchadney, daveincamas and eleanor.l.cooper (CC0, public domain or CC BY). Full credits: docs/licenses/SOUNDS.md in the repository.", Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(36.dp))
     }

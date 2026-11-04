@@ -1,9 +1,14 @@
 package app.murmur.data
 
 object SeedStories {
-    val all: List<Story> = listOf(
+    val all: List<Story> by lazy { base + MoreStories.all }
+
+    private val base: List<Story> = listOf(
         Story(
             id = "seed_tortoise_hare",
+            plates = listOf(Plate("crane_hare_tortoise", Books.CRANE, .62f, .18f, 1f, .5f)),
+            motif = Motif.TORTOISE_HARE,
+            scene = app.murmur.audio.AmbienceKind.FOREST,
             title = "The Tortoise and the Hare",
             author = "Aesop, retold",
             category = Categories.FABLES,
@@ -32,6 +37,9 @@ object SeedStories {
         ),
         Story(
             id = "seed_lion_mouse",
+            plates = listOf(Plate("crane_mouse_lion", Books.CRANE, 0f, .5f, .52f, 1f)),
+            motif = Motif.LION,
+            scene = app.murmur.audio.AmbienceKind.DESERT,
             title = "The Lion and the Mouse",
             author = "Aesop, retold",
             category = Categories.FABLES,
@@ -60,6 +68,9 @@ object SeedStories {
         ),
         Story(
             id = "seed_crow_pitcher",
+            plates = listOf(Plate("crane_crow_pitcher", Books.CRANE, .02f, .02f, .42f, .38f)),
+            motif = Motif.CROW_PITCHER,
+            scene = app.murmur.audio.AmbienceKind.DESERT,
             title = "The Crow and the Pitcher",
             author = "Aesop, retold",
             category = Categories.FABLES,
@@ -84,6 +95,9 @@ object SeedStories {
         ),
         Story(
             id = "seed_wind_sun",
+            plates = listOf(Plate("crane_wind_sun", Books.CRANE, .45f, 0f, 1f, .42f)),
+            motif = Motif.SUN_WIND,
+            scene = app.murmur.audio.AmbienceKind.WIND,
             title = "The North Wind and the Sun",
             author = "Aesop, retold",
             category = Categories.FABLES,
@@ -105,81 +119,99 @@ object SeedStories {
             """.trimIndent(),
         ),
         Story(
-            id = "seed_sulayman_ant",
-            title = "Sulayman and the Ant",
-            author = "Quranic narrative, retold",
-            category = Categories.FAITH,
+            id = "seed_stonecutter",
+            motif = Motif.MOUNTAIN,
+            scene = app.murmur.audio.AmbienceKind.STREAM,
+            title = "The Stonecutter's Wish",
+            author = "Japanese folktale, retold",
+            category = Categories.WISDOM,
             moods = setOf("inspire", "learn", "calm"),
-            summary = "A king who stopped to listen, and thanked his Lord.",
-            rights = Rights.RETOLD,
+            summary = "A man who kept wishing to be something more, and found what he already was.",
+            rights = Rights.PUBLIC_DOMAIN,
             body = """
-                Among the prophets was Sulayman, peace be upon him, the son of Dawud. Allah gave him knowledge, and a kingdom unlike any other. He could understand the speech of the birds, and armies of humans, jinn and birds marched under his command, each held in perfect order.
+                At the foot of a great mountain lived a stonecutter named Tarou. Every morning he climbed the slope with his hammer and chisel, and every evening he came home tired, with a little more stone and a little less hope.
 
-                One day, Sulayman and his great army set out and came to a valley where ants lived. From among the ants, one small voice rang out. She said, "O ants! Enter your homes, so that Sulayman and his soldiers do not crush you without realizing it."
+                One day he passed the house of a rich merchant, and through the open door he saw silk cushions and golden lamps. "How I wish I were rich," he sighed. And a voice from the mountain answered, "So you shall be."
 
-                Sulayman heard her. And the mightiest king on earth did not mock her, and did not ignore her. He smiled, and his smile grew into laughter at her words, and he stopped his army so that no ant would be harmed.
+                At once Tarou was a merchant in a fine house. But soon he saw a prince ride by, with servants running at his side. "The prince is greater than I," he thought. "I wish I were a prince." And so he was.
 
-                Then he turned to his Lord, and prayed: "My Lord, inspire me to be grateful for Your favor which You have bestowed upon me and upon my parents, and to do righteous deeds that please You. And admit me, by Your mercy, among Your righteous servants."
+                Then the summer came, and the sun beat down on the prince's golden carriage until he could hardly breathe. "The sun is mightier than any prince," he groaned. "I wish I were the sun." And so he was.
 
-                Power did not make Sulayman proud. It made him grateful. He listened to the smallest voice in the valley, and he turned every blessing back into thanks.
+                He blazed across the sky, proud and bright, until a cloud drifted in front of him and hid the whole earth from his sight. "The cloud is stronger than the sun," he said. "I wish I were a cloud." And so he was.
 
-                May we also listen to those who seem small, and may every gift we are given make us more grateful, and more kind.
+                He poured rain on the valleys and flooded the rivers, but the mountain stood in the middle of it all and did not move. "The mountain is the strongest of all," he said. "I wish I were the mountain." And so he was.
+
+                Now Tarou stood tall and still, and he felt very strong. Then, far below his feet, he felt a small tap, tap, tap. A stonecutter was chipping away at his side, and slowly a piece of the mountain came loose.
+
+                "Even the mountain can be changed by a man with a hammer," thought Tarou. "I wish I were that man again."
+
+                And the voice said gently, "So you are." Tarou woke on the mountain path with his hammer in his hand. The morning light was golden. And for the first time he did not wish for anything at all.
             """.trimIndent(),
         ),
         Story(
-            id = "seed_yunus",
-            title = "Yunus and the Whale",
-            author = "Quranic narrative, retold",
-            category = Categories.FAITH,
-            moods = setOf("patience", "calm", "inspire"),
-            summary = "A prayer in the deepest darkness, and the mercy that answered it.",
-            rights = Rights.RETOLD,
+            id = "seed_farmers_horse",
+            motif = Motif.HORSE,
+            scene = app.murmur.audio.AmbienceKind.WIND,
+            title = "Maybe: The Farmer and His Horse",
+            author = "Chinese parable, retold",
+            category = Categories.WISDOM,
+            moods = setOf("patience", "calm", "learn"),
+            summary = "Good luck, bad luck, who can say? An old farmer takes each day as it comes.",
+            rights = Rights.PUBLIC_DOMAIN,
             body = """
-                Yunus, peace be upon him, was a prophet sent to the people of Nineveh. He called them to Allah for a long time, but they did not listen. Weary and disappointed, he left them in frustration before he was given permission to go.
+                Once there was an old farmer who lived in a small village with his son and his one good horse. One morning the horse pushed open the gate and ran away into the hills.
 
-                He boarded a loaded ship. But the sea rose, the waves grew wild, and the ship was in danger. The people on board cast lots to decide who should be thrown overboard to lighten the load, and the lot fell upon Yunus.
+                The neighbors gathered at his door. "What terrible luck," they said.
 
-                He was cast into the dark water, and a great fish swallowed him.
+                The farmer shrugged. "Maybe," he said.
 
-                Now Yunus was in darkness upon darkness: the darkness of the night, the darkness of the sea, and the darkness of the belly of the fish. No one could see him. No one could hear him. But Allah was near.
+                A week later the horse came back, and behind it walked a dozen wild horses from the hills. "What wonderful luck!" said the neighbors.
 
-                And from the depths, Yunus called out: "There is no god but You. Glory be to You. Truly, I was among the wrongdoers."
+                "Maybe," said the farmer.
 
-                Allah heard his prayer. By His mercy, the fish carried him to the shore, where he lay weak and sick. Allah caused a gourd plant to grow over him, giving him shade and rest, until he was strong again.
+                The next day his son tried to ride one of the wild horses. It threw him to the ground, and his leg was broken. "What terrible luck," said the neighbors.
 
-                And when Yunus returned to Nineveh, the people had believed, and Allah let them enjoy their lives for a time.
+                "Maybe," said the farmer, and he sat by his son's bed and brought him tea.
 
-                No darkness is too deep for a sincere call. A single honest prayer can reach Allah from the bottom of the sea.
+                Soon after, soldiers came marching through the village, calling every young man to the war. But they looked at the farmer's son, lying with his leg in a splint, and they passed him by.
+
+                "What wonderful luck!" said the neighbors.
+
+                The farmer looked out at the hills, where the evening was turning gold. "Maybe," he said softly. And he went inside to light the lamp.
             """.trimIndent(),
         ),
         Story(
-            id = "seed_yusuf",
-            title = "Yusuf: Patience and Forgiveness",
-            author = "Quranic narrative, retold",
-            category = Categories.FAITH,
-            moods = setOf("patience", "inspire", "learn"),
-            summary = "From the bottom of a well to the storehouses of Egypt, and a forgiveness that needed no revenge.",
-            rights = Rights.RETOLD,
+            id = "seed_stone_soup",
+            motif = Motif.POT,
+            scene = app.murmur.audio.AmbienceKind.FIRE,
+            title = "Stone Soup",
+            author = "European folktale, retold",
+            category = Categories.WISDOM,
+            moods = setOf("inspire", "learn", "calm"),
+            summary = "A hungry traveler, an empty pot, and a village that learns to share.",
+            rights = Rights.PUBLIC_DOMAIN,
             body = """
-                Yusuf, peace be upon him, was a boy loved by his father, the prophet Yaqub. One night he dreamed that eleven stars, and the sun and the moon, bowed down to him. He told his father, who said gently, "My son, do not tell your brothers your dream, for they may plot against you."
+                On a cold evening, a tired traveler came to a village at the edge of a forest. He knocked on one door after another, asking for a little food. But the people had little, and each one said, "I am sorry, I have nothing to spare."
 
-                But his brothers were already jealous. They took Yusuf out to play, and instead they threw him into a deep well. Then they returned to their father with a lie. Yaqub wept, but he said, "Beautiful patience is what I will have."
+                The traveler only smiled. He set down his pack, borrowed a great iron pot, and filled it with water from the well. Then he built a small fire in the square and placed a smooth round stone in the pot.
 
-                A caravan found Yusuf in the well, and he was sold in Egypt. There he grew up in the house of a high official. Allah gave him wisdom and knowledge, and he became known for his honesty. When he was tested and falsely accused, he chose to keep his integrity, even though it cost him years in prison.
+                Curious faces appeared at the windows. "What are you cooking?" asked a woman.
 
-                In prison, Yusuf was kind to everyone. He interpreted dreams, and he called people to Allah. When the king of Egypt had a troubling dream, it was Yusuf who explained it: seven years of plenty would be followed by seven years of famine. He advised the people to store grain wisely. The king trusted him with the storehouses of the land.
+                "Stone soup," said the traveler. "It is nearly perfect. It only needs a little cabbage, if anyone could spare it."
 
-                When the famine came, his brothers traveled to Egypt for food. They did not recognize him, but he recognized them. And when the time was right, he told them who he was.
+                The woman went home and came back with a cabbage. Then a boy brought carrots. A baker brought salt and a handful of barley. An old man brought potatoes, and someone else an onion, and someone else a bone from the Sunday meal.
 
-                They were ashamed and afraid. But Yusuf said, "No blame will there be upon you today. May Allah forgive you, and He is the most merciful of the merciful."
+                The soup bubbled softly, and the smell drifted over the rooftops. One by one the villagers came out and sat around the fire, and bowls and spoons appeared from nowhere.
 
-                He did not take revenge. After many years of patience, Allah brought the family together, and his father's dream came true.
+                They ate until they were warm and full, and they talked and laughed together as they had not in years.
 
-                Yusuf teaches us that patience is not weakness. It is strength that waits for Allah, and forgiveness is the crown of the strong.
+                In the morning, the traveler lifted the stone from the pot, wiped it clean, and left it on the well for the next hungry stranger. "It is a very good stone," he said. "But it is the sharing that makes the soup."
             """.trimIndent(),
         ),
         Story(
             id = "seed_lantern_hill",
+            motif = Motif.LANTERN,
+            scene = app.murmur.audio.AmbienceKind.NIGHT,
             title = "The Lantern on the Hill",
             author = "Murmur",
             category = Categories.CALM,

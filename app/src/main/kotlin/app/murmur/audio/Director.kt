@@ -4,7 +4,11 @@ import app.murmur.data.Categories
 import app.murmur.data.Story
 import kotlin.math.roundToInt
 
-enum class Role { NARRATOR, MALE, FEMALE }
+/** Which voice speaks. CHILD and DEEP are assigned their own voices, then pitch-shifted (see Segment.pitch). */
+enum class Role { NARRATOR, MALE, FEMALE, CHILD, DEEP }
+
+/** How a character sounds beyond gender: small and young, big and deep, or old. */
+enum class Style { CHILD, DEEP, ELDER }
 
 /** One stretch of the story read with a single voice, pace and background sound. */
 data class Segment(
@@ -12,6 +16,10 @@ data class Segment(
     val role: Role,
     val speed: Float,
     val ambience: AmbienceKind,
+    /** Seconds of silence after this segment: a breath between lines, a longer rest at a paragraph end. */
+    val pause: Float = 0.4f,
+    /** Pitch multiplier applied at playback: above 1 for small or young characters, below 1 for big or old ones. */
+    val pitch: Float = 1f,
 )
 
 data class Plan(val segments: List<Segment>, val music: MusicMood = MusicMood.CALM) {
@@ -62,8 +70,24 @@ object Director {
     private val fastWords = words("ran", "run", "running", "raced", "rushed", "sprang", "leapt", "jumped", "shot", "suddenly", "quickly", "fast", "hurry", "hurried", "chased", "dashed", "burst", "roared", "shouted", "cried")
     private val slowWords = words("slowly", "slow", "gently", "gentle", "quietly", "quiet", "softly", "soft", "rest", "rested", "sleep", "asleep", "still", "calm", "peace", "prayer", "prayed", "whispered", "breath", "breathe", "patient", "patience", "waited", "wept")
 
-    private val maleCues = words("he", "his", "him", "himself", "man", "men", "king", "father", "son", "boy", "brother", "brothers", "prophet", "husband", "uncle", "grandfather", "lord", "master", "sir", "hunter", "shepherd", "merchant", "old man", "young man", "sulayman", "yusuf", "yunus", "yaqub", "dawud", "musa", "ibrahim", "ismail", "nuh", "adam")
-    private val femaleCues = words("she", "her", "hers", "herself", "woman", "women", "queen", "mother", "daughter", "girl", "sister", "sisters", "wife", "aunt", "grandmother", "lady", "princess", "maryam", "asiya", "hajar", "khadijah", "aisha", "fatimah")
+    private val childCues = words("child", "children", "boy", "girl", "little", "tiny", "small", "baby", "kid", "kids", "young", "duckling", "kitten", "puppy", "chick", "lamb", "mouse", "mice", "sparrow", "bunny", "rabbits", "rabbit", "fawn", "cub", "ant", "ants", "grasshopper", "kids", "goats", "goat", "nico", "peter", "flopsy", "mopsy", "hans", "grethel")
+    private val deepCues = words("lion", "bear", "giant", "ogre", "wolf", "dragon", "tiger", "elephant", "ox", "bull", "troll", "beast", "monster", "whale", "horse", "stallion", "thunder", "mannikin")
+    private val elderCues = words("old", "elder", "elderly", "grandmother", "grandfather", "grandma", "grandpa", "ancient", "hermit", "wise")
+    private val childRx = wordRx(childCues)
+    private val deepRx = wordRx(deepCues)
+    private val elderRx = wordRx(elderCues)
+
+    /** Reads the words around a quote ("said the little mouse") for how the speaker sounds. Big beats small beats old. */
+    private fun styleOf(text: String): Style? = when {
+        text.isBlank() -> null
+        deepRx.containsMatchIn(text) -> Style.DEEP
+        childRx.containsMatchIn(text) -> Style.CHILD
+        elderRx.containsMatchIn(text) -> Style.ELDER
+        else -> null
+    }
+
+    private val maleCues = words("he", "his", "him", "himself", "man", "men", "king", "father", "son", "boy", "brother", "brothers", "prophet", "husband", "uncle", "grandfather", "lord", "master", "sir", "hunter", "shepherd", "merchant", "old man", "young man")
+    private val femaleCues = words("she", "her", "hers", "herself", "woman", "women", "queen", "mother", "daughter", "girl", "sister", "sisters", "wife", "aunt", "grandmother", "lady", "princess")
 
     private fun wordRx(list: List<String>) = Regex("\\b(" + list.joinToString("|") { Regex.escape(it) } + ")\\b", RegexOption.IGNORE_CASE)
     private val sceneRx: Map<AmbienceKind, Pair<Regex, Regex>> = scenes.mapValues { (_, p) -> wordRx(p.first) to wordRx(p.second) }
@@ -73,6 +97,11 @@ object Director {
     private val slowRx = wordRx(slowWords)
     private val maleRx = wordRx(maleCues)
     private val femaleRx = wordRx(femaleCues)
+
+    /** A voice choice for one stretch of text: which voice, at what pitch, and a pace tweak. */
+    private data class Voicing(val role: Role, val pitch: Float, val speedAdj: Float) {
+        companion object { val NARRATION = Voicing(Role.NARRATOR, 1f, 0f) }
+    }
 
     private data class Span(val text: String, val quote: Boolean)
 
@@ -148,7 +177,7 @@ object Director {
     fun plan(story: Story): Plan {
         val baseSpeed = when (story.category) {
             Categories.CALM -> 0.85f
-            Categories.FAITH -> 0.9f
+            Categories.WISDOM -> 0.9f
             else -> 0.95f
         }
         var scene = when {
@@ -165,11 +194,13 @@ object Director {
             val best = sceneScores(first).filter { it.key != AmbienceKind.HEARTBEAT }.maxByOrNull { it.value }
             if (best != null && best.value >= 2) scene = best.key
         }
-        out += Segment("${story.title}.", Role.NARRATOR, baseSpeed, scene)
+        out += Segment("${story.title}.", Role.NARRATOR, baseSpeed, scene, pause = 1.3f)
+        var lastSpeed = baseSpeed
 
         var sinceChange = 99
         var lastSpeaker: Role? = null
         var prevSpeaker: Role? = null
+        var lastStyle: Style? = null
         val cast = learnCast(paragraphs)
 
         paragraphs.forEachIndexed { pi, para ->
@@ -192,17 +223,20 @@ object Director {
             var speed = baseSpeed + 0.04f * (fast - slow).coerceIn(-2, 2) + 0.03f * excl.coerceAtMost(2)
             if (pi == paragraphs.lastIndex && paragraphs.size > 2) speed -= 0.05f
             speed = (speed.coerceIn(0.8f, 1.15f) * 100).roundToInt() / 100f
+            // the pace drifts, it never jumps: at most a small step from one paragraph to the next
+            speed = ((lastSpeed + (speed - lastSpeed).coerceIn(-0.04f, 0.04f)) * 100).roundToInt() / 100f
+            lastSpeed = speed
 
             // --- voices: quotes first (they may span sentences), then attribute each quote ---
             val spans = splitSpans(para)
-            val pieces = mutableListOf<Pair<String, Role>>()
+            val pieces = mutableListOf<Pair<String, Voicing>>()
             spans.forEachIndexed { si, sp ->
                 if (!sp.quote) {
                     // Drop short speech tags next to a quote ("he said quietly."): the voice change already says who spoke.
                     val nextIsQuote = spans.getOrNull(si + 1)?.quote == true
                     val prevIsQuote = spans.getOrNull(si - 1)?.quote == true
                     val isTag = (nextIsQuote || prevIsQuote) && sp.text.split(Regex("\\s+")).size <= 6 && speechTagRx.matches(sp.text)
-                    if (!isTag) pieces += sp.text to Role.NARRATOR
+                    if (!isTag) pieces += sp.text to Voicing.NARRATION
                     return@forEachIndexed
                 }
                 val (before, after) = attribution(spans, si)
@@ -213,20 +247,33 @@ object Director {
                     else lastSpeaker ?: Role.MALE
                 }
                 if (speaker != lastSpeaker) { prevSpeaker = lastSpeaker; lastSpeaker = speaker }
-                pieces += sp.text to speaker
+                // how the speaker sounds: from the words around the quote, else carried over from the last quote
+                val style = styleOf("$before $after") ?: (if (cue == null) lastStyle else null)
+                lastStyle = style
+                pieces += sp.text to when (style) {
+                    Style.CHILD -> Voicing(Role.CHILD, 1.22f, 0.03f)
+                    Style.DEEP -> Voicing(Role.DEEP, 0.86f, -0.04f)
+                    Style.ELDER -> Voicing(speaker, 0.94f, -0.06f)
+                    null -> Voicing(speaker, 1f, 0f)
+                }
             }
 
-            // merge neighbours with the same role; split long narrator runs at sentence ends so they stream
-            val merged = mutableListOf<Pair<StringBuilder, Role>>()
-            for ((t, r) in pieces) {
+            // merge neighbours with the same voicing; split long narrator runs at sentence ends so they stream
+            val merged = mutableListOf<Pair<StringBuilder, Voicing>>()
+            for ((t, v) in pieces) {
                 val last = merged.lastOrNull()
-                if (last != null && last.second == r && last.first.length + t.length < 900) last.first.append(' ').append(t)
-                else merged += StringBuilder(t) to r
+                if (last != null && last.second == v && last.first.length + t.length < 900) last.first.append(' ').append(t)
+                else merged += StringBuilder(t) to v
             }
-            for ((sb, r) in merged) {
+            merged.forEachIndexed { mi, (sb, v) ->
                 val text = sb.toString()
-                val quoteSpeed = if (r != Role.NARRATOR && text.endsWith("!")) (speed + 0.05f).coerceAtMost(1.15f) else speed
-                for (chunk in splitLong(text, 900)) out += Segment(chunk, r, quoteSpeed, ambience)
+                val lift = if (v.role != Role.NARRATOR && text.endsWith("!")) 0.03f else 0f
+                val quoteSpeed = ((speed + lift + v.speedAdj).coerceIn(0.8f, 1.15f) * 100).roundToInt() / 100f
+                val chunks = splitLong(text, 600)
+                chunks.forEachIndexed { ci, chunk ->
+                    val endOfParagraph = mi == merged.lastIndex && ci == chunks.lastIndex
+                    out += Segment(chunk, v.role, quoteSpeed, ambience, pause = if (endOfParagraph) 0.95f else 0.3f, pitch = v.pitch)
+                }
             }
         }
         return Plan(out, musicFor(story))
@@ -243,7 +290,7 @@ object Director {
             sad >= 4 -> MusicMood.SAD
             tension >= 8 -> MusicMood.TENSION
             fast >= 7 -> MusicMood.ADVENTURE
-            story.category == Categories.FAITH -> MusicMood.WARM
+            story.category == Categories.WISDOM -> MusicMood.WARM
             story.category == Categories.FABLES -> MusicMood.HOPEFUL
             else -> MusicMood.CALM
         }

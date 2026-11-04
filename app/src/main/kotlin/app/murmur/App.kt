@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import app.murmur.audio.AmbienceKind
 import app.murmur.audio.MusicMood
 import app.murmur.audio.PlayerHub
+import app.murmur.data.Categories
 import app.murmur.data.Reflection
 import app.murmur.data.SeedStories
 import app.murmur.data.Story
@@ -41,7 +42,6 @@ object App {
     var pitch by mutableFloatStateOf(1f)
     var ambience by mutableStateOf(AmbienceKind.NONE)
     var ambienceVolume by mutableFloatStateOf(0.35f)
-    var faithTouches by mutableStateOf(false)
 
     /** Story Director: when true, the app picks this itself per scene; false = the manual setting above applies. */
     var autoVoice by mutableStateOf(true)
@@ -67,7 +67,6 @@ object App {
         ambience = runCatching { AmbienceKind.valueOf(prefs.getString("ambience", "NONE") ?: "NONE") }
             .getOrDefault(AmbienceKind.NONE)
         ambienceVolume = prefs.getFloat("ambVol", 0.35f)
-        faithTouches = prefs.getBoolean("faith", false) // general audience by default; opt-in
         autoVoice = prefs.getBoolean("autoVoice", true)
         autoSpeed = prefs.getBoolean("autoSpeed", true)
         autoSound = prefs.getBoolean("autoSound", true)
@@ -97,6 +96,7 @@ object App {
 
         stories.addAll(SeedStories.all)
         stories.addAll(loadUserStories())
+        app.murmur.data.RemoteContent.refresh()
 
         goalText = prefs.getString("goalText", "") ?: ""
         val week = prefs.getLong("goalWeek", 0L)
@@ -120,7 +120,6 @@ object App {
             .putFloat("pitch", pitch)
             .putString("ambience", ambience.name)
             .putFloat("ambVol", ambienceVolume)
-            .putBoolean("faith", faithTouches)
             .putBoolean("autoVoice", autoVoice)
             .putBoolean("autoSpeed", autoSpeed)
             .putBoolean("autoSound", autoSound)
@@ -174,7 +173,7 @@ object App {
                 id = o.getString("id"),
                 title = o.getString("title"),
                 author = o.getString("author"),
-                category = o.getString("category"),
+                category = o.getString("category").let { if (it == "Faith & wisdom") Categories.WISDOM else it },
                 moods = setOf("calm"),
                 summary = o.getString("body").take(110).replace("\n", " ") + "...",
                 body = o.getString("body"),

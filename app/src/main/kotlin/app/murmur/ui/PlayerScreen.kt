@@ -2,6 +2,20 @@
 
 package app.murmur.ui
 
+import androidx.compose.foundation.lazy.items
+
+import androidx.compose.ui.draw.clip
+
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.draw.scale
+
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -63,6 +77,8 @@ private fun Role.label() = when (this) {
     Role.NARRATOR -> "Narrator"
     Role.MALE -> "Male character"
     Role.FEMALE -> "Female character"
+    Role.CHILD -> "Young voice"
+    Role.DEEP -> "Deep voice"
 }
 
 private fun fmtSpeed(f: Float) = "%.2f".format(f).trimEnd('0').trimEnd('.') + "×"
@@ -90,26 +106,33 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
     var tune by remember { mutableStateOf(false) }
 
     Column(Modifier.verticalScroll(rememberScrollState())) {
-        TextButton(onClick = onBack, modifier = Modifier.padding(start = 10.dp, top = 6.dp)) {
-            Text("Back", color = Ink.dusk)
-        }
         if (story == null) {
+            TextButton(onClick = onBack, modifier = Modifier.padding(start = 10.dp, top = 6.dp)) { Text("Back", color = Ink.dusk) }
             Quiet("Pick a story from the library.", Modifier.padding(22.dp))
             return@Column
         }
 
-        // Cover with a soft tinted glow behind it
-        Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
+        val scene = PlayerHub.nowAmbience.let { if (it == AmbienceKind.NONE) AmbienceKind.CALM else it }
+        val bob by rememberInfiniteTransition(label = "bob").animateFloat(
+            -6f, 6f, infiniteRepeatable(tween(4200, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse), label = "bobY",
+        )
+        Box(Modifier.fillMaxWidth().height(360.dp)) {
+            SceneBackdrop(scene, Modifier.matchParentSize())
             Box(
-                Modifier.fillMaxWidth().aspectRatio(1.1f).background(
-                    Brush.radialGradient(
-                        0f to coverTint(story).copy(alpha = 0.75f),
-                        0.55f to coverTint(story).copy(alpha = 0.2f),
-                        1f to Color.Transparent,
-                    ),
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.25f), 0.3f to Color.Transparent, 0.62f to Color.Transparent, 1f to Ink.night),
                 ),
             )
-            Cover(story, Modifier.width(230.dp).aspectRatio(0.78f), corner = 22.dp)
+            TextButton(onClick = onBack, modifier = Modifier.padding(start = 6.dp, top = 6.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Ink.moth, modifier = Modifier.size(20.dp))
+                Text("  Back", color = Ink.moth)
+            }
+            Cover(
+                story,
+                Modifier.align(Alignment.Center).offset(y = (14 + bob).dp).width(176.dp).aspectRatio(0.78f),
+                corner = 22.dp,
+                animated = true,
+            )
         }
 
         Column(Modifier.padding(horizontal = 26.dp)) {
@@ -117,9 +140,9 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
                 story.title,
                 style = MaterialTheme.typography.headlineMedium,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
             )
-            Quiet(story.meta(), Modifier.fillMaxWidth().padding(top = 4.dp).also { }, )
+            Text(story.meta(), style = MaterialTheme.typography.bodyMedium, color = Ink.dusk, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
 
             // Scrubber over the whole story
             Scrubber(PlayerHub.fraction, Modifier.fillMaxWidth().padding(top = 18.dp)) { PlayerHub.seekToFraction(it) }
@@ -145,22 +168,20 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
                 }
             }
 
+            DirectorCard(Modifier.padding(top = 14.dp))
+            if (story.plates.isNotEmpty()) PlateGallery(story.plates, Modifier.padding(top = 14.dp))
+
             // Transport
             Row(
                 Modifier.fillMaxWidth().padding(top = 18.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { PlayerHub.previous() }) { Text("Prev", color = Ink.dusk) }
-                TextButton(onClick = { PlayerHub.seekBy(-15_000) }) { Text("15s", color = Ink.moth) }
-                Box(
-                    Modifier.size(76.dp).background(Ink.ember, CircleShape).clickable { PlayerHub.togglePlay() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (PlayerHub.playing) PauseGlyph() else Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Ink.onEmber, modifier = Modifier.size(40.dp))
-                }
-                TextButton(onClick = { PlayerHub.seekBy(15_000) }) { Text("15s", color = Ink.moth) }
-                TextButton(onClick = { PlayerHub.next() }) { Text("Next", color = Ink.dusk) }
+                TransportButton(Glyph.PREV, Ink.dusk) { PlayerHub.previous() }
+                TransportButton(Glyph.BACK15, Ink.moth) { PlayerHub.seekBy(-15_000) }
+                PlayButton()
+                TransportButton(Glyph.FWD15, Ink.moth) { PlayerHub.seekBy(15_000) }
+                TransportButton(Glyph.NEXT, Ink.dusk) { PlayerHub.next() }
             }
 
             if (PlayerHub.finished) {
@@ -272,6 +293,7 @@ private fun TuneSheet() {
         if (rv.isNotEmpty()) Quiet(rv.entries.joinToString(". ") { (r, v) -> "${r.label()}: ${v.label}" } + ".")
 
         Heading("Pace")
+        Quiet("Better voices bake the pace into the speech, so a change applies when you restart the story.")
         FlowRow(horizontalArrangement = spacedRow, verticalArrangement = spacedRow) {
             Pill("Auto", App.autoSpeed) { App.autoSpeed = true; App.saveSettings() }
             listOf(0.8f, 0.9f, 1.0f, 1.15f, 1.3f, 1.5f).forEach { s ->
@@ -325,6 +347,98 @@ private fun TuneSheet() {
                 Quiet("Dialogue gets its own voice. Applies when you restart the story.")
             }
             Switch(checked = App.autoVoice, onCheckedChange = { App.autoVoice = it; App.saveSettings() })
+        }
+    }
+}
+
+@Composable
+private fun TransportButton(glyph: Glyph, tint: Color, onClick: () -> Unit) {
+    Box(Modifier.size(52.dp).bounceClick(onClick), contentAlignment = Alignment.Center) { GlyphIcon(glyph, tint, 30.dp) }
+}
+
+/** Big play button with a soft ring that breathes while the story is playing. */
+@Composable
+private fun PlayButton() {
+    val ring by rememberInfiniteTransition(label = "ring").animateFloat(
+        1f, 1.28f, infiniteRepeatable(tween(2200), RepeatMode.Restart), label = "ringScale",
+    )
+    Box(Modifier.size(96.dp), contentAlignment = Alignment.Center) {
+        if (PlayerHub.playing) {
+            Box(
+                Modifier.size(76.dp).scale(ring).alpha(((1.28f - ring) / 0.28f) * 0.45f)
+                    .border(2.dp, Ink.ember, CircleShape),
+            )
+        }
+        Box(
+            Modifier.size(76.dp).background(Ink.ember, CircleShape).bounceClick { PlayerHub.togglePlay() },
+            contentAlignment = Alignment.Center,
+        ) {
+            GlyphIcon(if (PlayerHub.playing) Glyph.PAUSE else Glyph.PLAY, Ink.onEmber, 38.dp)
+        }
+    }
+}
+
+/** What the AI Director has chosen right now, with each value cross-fading when it changes. */
+@Composable
+private fun DirectorCard(modifier: Modifier = Modifier) {
+    val plan = PlayerHub.plan
+    val amb = PlayerHub.nowAmbience.let { if (it.file == null && it != AmbienceKind.HEARTBEAT && it != AmbienceKind.CALM) "None" else it.label }
+    val mus = PlayerHub.nowMusic.label
+    Column(
+        modifier.fillMaxWidth().background(Ink.lamp, RoundedCornerShape(18.dp)).padding(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            DirectorBadge()
+            Spacer(Modifier.weight(1f))
+            Text(fmtSpeed(PlayerHub.nowSpeed), style = MaterialTheme.typography.labelMedium, color = Ink.ember)
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            DirectorCell("Voice", PlayerHub.nowRole.label().removeSuffix(" character"), Modifier.weight(1f))
+            DirectorCell("Scene", amb, Modifier.weight(1f))
+            DirectorCell("Music", mus, Modifier.weight(1f))
+        }
+        if (plan != null) {
+            Quiet(plan.summary(), Modifier.padding(top = 12.dp))
+        } else {
+            Quiet("Reading the story to plan voices, scenes and music...", Modifier.padding(top = 12.dp))
+        }
+    }
+}
+
+@Composable
+private fun DirectorCell(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Ink.dusk)
+        androidx.compose.animation.Crossfade(value, animationSpec = tween(900), label = label) { v ->
+            Text(v, style = MaterialTheme.typography.titleSmall, color = Ink.moth, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** The real illustrations from the public-domain book behind this story: one plate, or a swipeable row. */
+@Composable
+private fun PlateGallery(plates: List<app.murmur.data.Plate>, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().background(Ink.lamp, RoundedCornerShape(18.dp)).padding(12.dp)) {
+        Text(
+            if (plates.size > 1) "From the book  ·  ${plates.size} pictures, swipe" else "From the book",
+            style = MaterialTheme.typography.labelMedium, color = Ink.ember, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+        )
+        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(plates.size) { i -> PlateImage(plates[i], tall = plates.size > 1) }
+        }
+        Quiet(plates.first().credit, Modifier.padding(start = 4.dp, top = 8.dp))
+    }
+}
+
+@Composable
+private fun PlateImage(plate: app.murmur.data.Plate, tall: Boolean) {
+    val img = rememberPlate(plate.asset)
+    val ratio = img?.let { it.width.toFloat() / it.height } ?: 1f
+    val shape = RoundedCornerShape(10.dp)
+    val mod = if (tall) Modifier.height(260.dp).aspectRatio(ratio) else Modifier.fillMaxWidth().aspectRatio(ratio)
+    Box(mod.clip(shape).background(Ink.lampHigh)) {
+        if (img != null) Canvas(Modifier.matchParentSize()) {
+            drawImage(img, dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt()))
         }
     }
 }

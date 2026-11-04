@@ -10,7 +10,12 @@ data class Story(
     val body: String,
     val rights: String,
     val isUser: Boolean = false,
+    val motif: Motif? = null,
+    val scene: app.murmur.audio.AmbienceKind? = null,
+    val plates: List<Plate> = emptyList(),
 ) {
+    val artMotif: Motif get() = motif ?: Motif.guess(title, body)
+    val artScene: app.murmur.audio.AmbienceKind get() = scene ?: sceneForCategory(category)
     val words: Int get() = body.split(Regex("\\s+")).count { it.isNotBlank() }
     val minutes: Int get() = maxOf(1, Math.round(words / 150f))
 }
@@ -18,12 +23,13 @@ data class Story(
 data class Reflection(val date: String, val text: String, val storyTitle: String?)
 
 object Categories {
-    const val FAITH = "Faith & wisdom"
+    const val WISDOM = "Wisdom tales"
     const val FABLES = "Fables"
+    const val CLASSICS = "Classic tales"
     const val CALM = "Sleep & calm"
     const val YOURS = "Yours"
-    val all = listOf(FABLES, FAITH, CALM, YOURS)
-    val forUpload = listOf(FABLES, FAITH, CALM, YOURS)
+    val all = listOf(FABLES, CLASSICS, WISDOM, CALM, YOURS)
+    val forUpload = listOf(FABLES, CLASSICS, WISDOM, CALM, YOURS)
 }
 
 object Moods {
@@ -44,4 +50,21 @@ object Rights {
     const val USER_PD = "Public domain"
     const val USER_PERMISSION = "I have permission"
     val userChoices = listOf(USER_OWN, USER_PD, USER_PERMISSION)
+}
+
+/**
+ * A real illustration from a public-domain book, bundled in assets/plates. The crop (fractions of the
+ * image) is what the cover shows; the player shows the whole plate with its credit.
+ */
+data class Plate(
+    val asset: String,
+    val credit: String,
+    val l: Float = 0f,
+    val t: Float = 0f,
+    val r: Float = 1f,
+    val b: Float = 1f,
+)
+
+object Books {
+    const val CRANE = "Walter Crane, The Baby's Own Aesop (1887), engraved by Edmund Evans"
 }

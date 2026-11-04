@@ -49,6 +49,25 @@ object VoicePacks {
                 "Isabella (UK female)", "George (UK male)", "Lewis (UK male)",
             ),
         ),
+        VoicePack(
+            id = "kokoro-multi-lang-v1_0",
+            title = "Kokoro v1.0 (large, experimental)",
+            desc = "The most voices: 28 English voices, US and UK, with lighter and deeper ones for characters. " +
+                "Big download (about 330 MB) and slow on a phone, so stories need a long head start.",
+            archive = "kokoro-multi-lang-v1_0",
+            sizeMb = 330,
+            kind = PackKind.KOKORO,
+            // ids 0-27 of the 53 speakers are the English ones; the rest are Chinese and are left out
+            speakers = listOf(
+                "Alloy (US female)", "Aoede (US female)", "Bella (US female)", "Heart (US female)",
+                "Jessica (US female)", "Kore (US female)", "Nicole (US female)", "Nova (US female)",
+                "River (US female)", "Sarah (US female)", "Sky (US female)",
+                "Adam (US male)", "Echo (US male)", "Eric (US male)", "Fenrir (US male)", "Liam (US male)",
+                "Michael (US male)", "Onyx (US male)", "Puck (US male)", "Santa (US male)",
+                "Alice (UK female)", "Emma (UK female)", "Isabella (UK female)", "Lily (UK female)",
+                "Daniel (UK male)", "Fable (UK male)", "George (UK male)", "Lewis (UK male)",
+            ),
+        ),
         piper("vits-piper-en_US-lessac-medium-int8", "Lessac", "US female, clear narrator voice.", "Lessac (US female)"),
         piper("vits-piper-en_US-ryan-medium-int8", "Ryan", "US male, warm and steady.", "Ryan (US male)"),
         piper("vits-piper-en_US-amy-medium-int8", "Amy", "US female, soft and gentle.", "Amy (US female)"),

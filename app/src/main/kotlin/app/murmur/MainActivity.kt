@@ -10,6 +10,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -63,6 +69,7 @@ import app.murmur.ui.Ink
 import app.murmur.ui.LibraryScreen
 import app.murmur.ui.MurmurTheme
 import app.murmur.ui.PauseScreen
+import app.murmur.ui.RunClock
 import app.murmur.ui.PlayerScreen
 import app.murmur.ui.SettingsScreen
 
@@ -126,14 +133,25 @@ private fun Root() {
         },
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
-            when (screen) {
-                Screen.HOME -> HomeScreen(::open, { screen = Screen.PAUSE }, { screen = Screen.DONE })
-                Screen.LIBRARY -> LibraryScreen(::open)
-                Screen.ADD -> AddStoryScreen(::open)
-                Screen.SETTINGS -> SettingsScreen()
-                Screen.PLAYER -> PlayerScreen({ screen = Screen.LIBRARY }, { screen = Screen.DONE })
-                Screen.PAUSE -> PauseScreen({ screen = Screen.HOME }, ::open)
-                Screen.DONE -> DoneScreen { screen = Screen.HOME }
+            RunClock()
+            AnimatedContent(
+                targetState = screen,
+                transitionSpec = {
+                    val up = targetState == Screen.PLAYER
+                    (fadeIn(tween(280)) + slideInVertically(tween(320)) { if (up) it / 12 else it / 40 }) togetherWith
+                        fadeOut(tween(160))
+                },
+                label = "screen",
+            ) { target ->
+                when (target) {
+                    Screen.HOME -> HomeScreen(::open, { screen = Screen.PAUSE }, { screen = Screen.DONE })
+                    Screen.LIBRARY -> LibraryScreen(::open)
+                    Screen.ADD -> AddStoryScreen(::open)
+                    Screen.SETTINGS -> SettingsScreen()
+                    Screen.PLAYER -> PlayerScreen({ screen = Screen.LIBRARY }, { screen = Screen.DONE })
+                    Screen.PAUSE -> PauseScreen({ screen = Screen.HOME }, ::open)
+                    Screen.DONE -> DoneScreen { screen = Screen.HOME }
+                }
             }
         }
     }
@@ -169,7 +187,7 @@ private fun MiniPlayer(onClick: () -> Unit) {
         Column {
             LinearProgressIndicator(progress = { PlayerHub.fraction }, color = Ink.ember, trackColor = Ink.lamp, modifier = Modifier.fillMaxWidth().height(2.dp))
             Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Cover(s, Modifier.width(38.dp).aspectRatio(0.78f), corner = 8.dp)
+                Cover(s, Modifier.width(38.dp).aspectRatio(0.78f), corner = 8.dp, animated = PlayerHub.playing)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)

@@ -40,7 +40,7 @@ class SherpaEngine : VoiceEngine {
         return if (id in PackManager.installed) preferred else ""
     }
 
-    override suspend fun synth(text: String, voiceName: String, out: File): Boolean {
+    override suspend fun synth(text: String, voiceName: String, out: File, speed: Float, tail: Float): Boolean {
         val parts = voiceName.split(":")
         val pack = parts.getOrNull(1)?.let { VoicePacks.byId(it) } ?: return false
         val sid = parts.getOrNull(2)?.toIntOrNull() ?: 0
@@ -49,8 +49,28 @@ class SherpaEngine : VoiceEngine {
                 try {
                     val engine = ensure(pack)
                     out.parentFile?.mkdirs()
-                    val audio = engine.generate(text, sid, 1.0f)
-                    audio.samples.isNotEmpty() && audio.save(out.absolutePath)
+                    val pieces = SpeechPacing.split(text)
+                    var rate = 0
+                    val chunks = ArrayList<FloatArray>()
+                    var total = 0
+                    for ((i, piece) in pieces.withIndex()) {
+                        val audio = engine.generate(piece.text, sid, speed)
+                        if (audio.samples.isEmpty()) continue
+                        rate = audio.sampleRate
+                        chunks += audio.samples
+                        total += audio.samples.size
+                        // slower speech breathes longer; the last piece gets the caller's tail instead
+                        val gap = if (i == pieces.lastIndex) tail else piece.pause / speed.coerceIn(0.6f, 1.4f)
+                        val silence = FloatArray((gap * rate).toInt())
+                        chunks += silence
+                        total += silence.size
+                    }
+                    if (rate == 0 || total == 0) return@withLock false
+                    val all = FloatArray(total)
+                    var at = 0
+                    for (c in chunks) { c.copyInto(all, at); at += c.size }
+                    WavWriter.write(out, all, rate)
+                    true
                 } catch (e: Throwable) {
                     Log.e("Murmur", "Sherpa synth failed for ${pack.id}", e)
                     false
@@ -101,6 +121,10 @@ class SherpaEngine : VoiceEngine {
                     voices = File(dir, "voices.bin").absolutePath,
                     tokens = tokens,
                     dataDir = espeak,
+                    // v1.0 packs ship lexicons and a dictionary; the older v0.19 pack has neither
+                    lexicon = listOf("lexicon-us-en.txt", "lexicon-zh.txt").map { File(dir, it) }
+                        .filter { it.exists() }.joinToString(",") { it.absolutePath },
+                    dictDir = File(dir, "dict").takeIf { it.isDirectory }?.absolutePath ?: "",
                 ),
                 numThreads = threads,
                 debug = false,
@@ -126,8 +150,8 @@ class CompositeEngine(private val system: VoiceEngine, private val sherpa: Voice
         return system.resolveVoice(preferred)
     }
 
-    override suspend fun synth(text: String, voiceName: String, out: File): Boolean =
-        if (voiceName.startsWith("sherpa:")) sherpa.synth(text, voiceName, out) else system.synth(text, voiceName, out)
+    override suspend fun synth(text: String, voiceName: String, out: File, speed: Float, tail: Float): Boolean =
+        if (voiceName.startsWith("sherpa:")) sherpa.synth(text, voiceName, out, speed, tail) else system.synth(text, voiceName, out, speed, tail)
 
     override suspend fun warmUp(voiceName: String) {
         if (voiceName.startsWith("sherpa:")) sherpa.warmUp(voiceName)

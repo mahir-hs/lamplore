@@ -21,7 +21,12 @@ import kotlin.coroutines.resume
 interface VoiceEngine {
     suspend fun voices(): List<VoiceInfo>
     suspend fun resolveVoice(preferred: String): String
-    suspend fun synth(text: String, voiceName: String, out: File): Boolean
+    /**
+     * Renders `text` to a WAV; true on success. Piper/Kokoro (voice names starting "sherpa:") bake `speed` into the
+     * speech and add natural pauses, so the player must not stretch their audio again. `tail` is seconds of silence
+     * appended after the text. The system engine ignores both (the player stretches its audio instead).
+     */
+    suspend fun synth(text: String, voiceName: String, out: File, speed: Float = 1f, tail: Float = 0f): Boolean
 
     /** Load the voice ahead of time so the first chunk's timing isn't skewed by model loading. */
     suspend fun warmUp(voiceName: String) {}
@@ -109,7 +114,7 @@ class TtsGenerator(private val ctx: Context) : VoiceEngine {
             ?: all.firstOrNull())?.name ?: ""
     }
 
-    override suspend fun synth(text: String, voiceName: String, out: File): Boolean {
+    override suspend fun synth(text: String, voiceName: String, out: File, speed: Float, tail: Float): Boolean {
         if (!ready.await()) return false
         englishVoices().firstOrNull { it.name == voiceName }?.let { tts.voice = it }
         out.parentFile?.mkdirs()

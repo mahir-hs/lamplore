@@ -8,6 +8,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import app.murmur.audio.AmbienceKind
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -61,8 +65,16 @@ fun HomeScreen(onOpen: (Story) -> Unit, onPause: () -> Unit, onDone: () -> Unit)
 
     LazyColumn {
         item {
-            Column(Modifier.padding(horizontal = 22.dp)) {
-                Text(greeting(), style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
+            Box(Modifier.fillMaxWidth()) {
+                SceneArt(skyFor(), Modifier.matchParentSize())
+                Box(
+                    Modifier.matchParentSize().background(
+                        Brush.verticalGradient(0f to Color.Transparent, 0.55f to Color.Transparent, 1f to Ink.night),
+                    ),
+                )
+            Column(Modifier.padding(horizontal = 22.dp).padding(bottom = 18.dp)) {
+                DirectorBadge(Modifier.padding(top = 20.dp))
+                Text(greeting(), style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 52.dp))
                 Quiet(
                     when {
                         App.todaySeconds < 60 && streak == 0 -> "Nothing yet tonight. One story is enough."
@@ -72,6 +84,7 @@ fun HomeScreen(onOpen: (Story) -> Unit, onPause: () -> Unit, onDone: () -> Unit)
                     Modifier.padding(top = 6.dp),
                 )
             }
+            }
         }
 
         if (hero != null) {
@@ -80,9 +93,9 @@ fun HomeScreen(onOpen: (Story) -> Unit, onPause: () -> Unit, onDone: () -> Unit)
 
         item {
             Heading("What do you need right now?", Modifier.padding(horizontal = 22.dp))
-            FlowRow(Modifier.padding(horizontal = 22.dp), horizontalArrangement = spacedRow, verticalArrangement = spacedRow) {
-                Moods.all.forEach { (key, label) ->
-                    Pill(label, mood == key) { mood = if (mood == key) null else key }
+            LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 22.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(Moods.all, key = { it.first }) { (key, label) ->
+                    MoodCard(label, moodScene(key), mood == key) { mood = if (mood == key) null else key }
                 }
             }
         }
@@ -104,7 +117,6 @@ fun HomeScreen(onOpen: (Story) -> Unit, onPause: () -> Unit, onDone: () -> Unit)
 }
 
 private fun greeting(): String {
-    if (App.faithTouches) return "Assalamu alaikum"
     val h = LocalTime.now().hour
     return when {
         h < 5 -> "Still up?"
@@ -139,7 +151,7 @@ private fun Hero(story: Story, resuming: Boolean, onOpen: () -> Unit) {
         )
         Column(Modifier.padding(horizontal = 22.dp)) {
             Box(Modifier.fillMaxWidth().aspectRatio(1.18f).clickable { onOpen() }) {
-                Cover(story, Modifier.fillMaxSize(), corner = 24.dp)
+                Cover(story, Modifier.fillMaxSize(), corner = 24.dp, animated = true)
                 Box(
                     Modifier
                         .matchParentSize()
@@ -219,5 +231,58 @@ private fun GoalBlock() {
             }
         }
         Spacer(Modifier.height(4.dp))
+    }
+}
+
+private fun skyFor(): AmbienceKind {
+    val h = LocalTime.now().hour
+    return if (h in 6..17) AmbienceKind.CALM else AmbienceKind.NIGHT
+}
+
+private fun moodScene(key: String): AmbienceKind = when (key) {
+    "calm" -> AmbienceKind.STREAM
+    "sleep" -> AmbienceKind.NIGHT
+    "learn" -> AmbienceKind.FOREST
+    "inspire" -> AmbienceKind.DESERT
+    "patience" -> AmbienceKind.RAIN
+    else -> AmbienceKind.CALM
+}
+
+/** A mood as a small living picture: the scene the Director would pick, with the label over it. */
+@Composable
+private fun MoodCard(label: String, scene: AmbienceKind, selected: Boolean, onClick: () -> Unit) {
+    val ring by androidx.compose.animation.animateColorAsState(if (selected) Ink.ember else Color.Transparent, label = "ring")
+    Box(
+        Modifier
+            .size(width = 118.dp, height = 78.dp)
+            .bounceClick(onClick)
+            .border(2.dp, ring, RoundedCornerShape(18.dp)),
+    ) {
+        SceneArt(scene, Modifier.matchParentSize(), corner = 18.dp, seed = label.length)
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.verticalGradient(0.3f to Color.Transparent, 1f to Ink.night.copy(alpha = 0.8f)),
+                RoundedCornerShape(18.dp),
+            ),
+        )
+        Text(label, style = MaterialTheme.typography.labelLarge, color = Ink.moth, modifier = Modifier.align(Alignment.BottomStart).padding(10.dp))
+    }
+}
+
+/** Says out loud that a Director is choosing voices, sound and music: a pulsing dot and one line. */
+@Composable
+fun DirectorBadge(modifier: Modifier = Modifier) {
+    val pulse by rememberInfiniteTransition(label = "badge").animateFloat(
+        0.35f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Reverse), label = "dot",
+    )
+    Row(
+        modifier
+            .background(Ink.night.copy(alpha = 0.55f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(8.dp).alpha(pulse).background(Ink.ember, CircleShape))
+        Text("  AI Director", style = MaterialTheme.typography.labelMedium, color = Ink.moth)
+        Text("  scores every story", style = MaterialTheme.typography.labelMedium, color = Ink.dusk)
     }
 }

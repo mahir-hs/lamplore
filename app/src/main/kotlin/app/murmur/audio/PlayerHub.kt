@@ -198,7 +198,9 @@ object PlayerHub {
             seg.ambience == AmbienceKind.HEARTBEAT -> MusicMood.TENSION
             else -> plan?.music ?: MusicMood.CALM
         }
-        exo?.playbackParameters = PlaybackParameters(nowSpeed, App.pitch)
+        // Piper/Kokoro bake the pace into the speech; only the system voice is time-stretched by the player.
+        val stretch = if (seg != null && baked(voiceFor[seg.role] ?: "")) 1f else nowSpeed
+        exo?.playbackParameters = PlaybackParameters(stretch, (App.pitch * (seg?.pitch ?: 1f)).coerceIn(0.5f, 2f))
         updateAmbience()
     }
 
@@ -206,6 +208,8 @@ object PlayerHub {
         if (!::bed.isInitialized) return
         bed.update(nowAmbience, nowMusic, App.ambienceVolume, App.musicVolume, exo?.isPlaying == true)
     }
+
+    private fun baked(voice: String) = voice.startsWith("sherpa:")
 
     private fun safe(s: String) = s.replace(Regex("[^A-Za-z0-9_-]"), "_")
 
@@ -226,11 +230,17 @@ object PlayerHub {
                 else -> 2
             }
         }
-        fun pick(g: Gender): String =
-            ordered.firstOrNull { it.gender == g && it.name != narrator && it.offline }?.name
-                ?: ordered.firstOrNull { it.gender == g && it.name != narrator }?.name
+        fun pick(g: Gender, vararg taken: String): String =
+            ordered.firstOrNull { it.gender == g && it.name != narrator && it.name !in taken && it.offline }?.name
+                ?: ordered.firstOrNull { it.gender == g && it.name != narrator && it.name !in taken }?.name
                 ?: narrator
-        val map = mapOf(Role.NARRATOR to narrator, Role.MALE to pick(Gender.MALE), Role.FEMALE to pick(Gender.FEMALE))
+        val male = pick(Gender.MALE)
+        val female = pick(Gender.FEMALE)
+        // Young and big characters get their own voice when there is one (a second woman, a second man),
+        // otherwise they share the usual one and the pitch shift alone sets them apart.
+        val child = pick(Gender.FEMALE, female).let { if (it == narrator) female else it }
+        val deep = pick(Gender.MALE, male).let { if (it == narrator) male else it }
+        val map = mapOf(Role.NARRATOR to narrator, Role.MALE to male, Role.FEMALE to female, Role.CHILD to child, Role.DEEP to deep)
         roleVoices = map.mapValues { (_, n) -> info(n) }
         return map
     }
@@ -292,14 +302,17 @@ object PlayerHub {
             for (i in base until segments.size) {
                 val seg = segments[i]
                 val voice = voiceFor[seg.role] ?: narrator
-                val f = File(dir, "seg_${i}_${safe(voice)}.wav")
+                // pace and pause are part of the audio, so they are part of the cache name
+                val spd = if (App.autoSpeed) seg.speed else App.speed
+                val bakedSpeed = if (baked(voice)) spd else 1f
+                val f = File(dir, "seg_${i}_${safe(voice)}_s${(bakedSpeed * 100).toInt()}_p${(seg.pause * 100).toInt()}.wav")
                 if (!f.exists() || f.length() < 1024) {
                     // While playing, say nothing: the player listener shows "Preparing next part..." only if
                     // playback actually catches up with generation.
                     if (!started) status = "Preparing voice (${i + 1}/${segments.size})..."
                     f.delete()
                     val t0 = System.nanoTime()
-                    val ok = engine.synth(seg.text, voice, f)
+                    val ok = engine.synth(seg.text, voice, f, bakedSpeed, seg.pause)
                     if (!ok) {
                         status = "Voice engine error. Check Settings > Text-to-speech in Android."
                         generating = false

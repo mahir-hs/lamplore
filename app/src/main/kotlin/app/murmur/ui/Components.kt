@@ -1,7 +1,22 @@
 package app.murmur.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +24,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -86,7 +102,7 @@ fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
         Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(if (selected) Ink.ember else Ink.lamp)
-            .clickable { onClick() }
+            .bounceClick(onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp),
     ) {
         Text(
@@ -101,7 +117,7 @@ fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
 @Composable
 fun CoverTile(story: Story, width: Dp, onClick: () -> Unit) {
     val done = story.id in App.completed
-    Column(Modifier.width(width).clickable { onClick() }) {
+    Column(Modifier.width(width).bounceClick(onClick)) {
         Box {
             Cover(story, Modifier.width(width).aspectRatio(0.78f))
             if (done) Dot(Modifier.align(Alignment.TopEnd).padding(10.dp), Ink.moss)
@@ -155,3 +171,61 @@ fun formatMs(ms: Long): String {
 }
 
 val spacedRow = Arrangement.spacedBy(8.dp)
+
+/** Spring-scale feedback on press, so every tap feels acknowledged. */
+fun Modifier.bounceClick(onClick: () -> Unit): Modifier = composed {
+    val src = remember { MutableInteractionSource() }
+    val pressed by src.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(dampingRatio = 0.55f, stiffness = 500f), label = "press")
+    this.scale(scale).clickable(interactionSource = src, indication = null, onClick = onClick)
+}
+
+enum class Glyph { PLAY, PAUSE, PREV, NEXT, BACK15, FWD15 }
+
+/** Transport icons drawn by hand (the icon pack in use has no pause or skip). */
+@Composable
+fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 28.dp) {
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = this.size.width
+            val h = this.size.height
+            fun tri(x0: Float, x1: Float): Path = Path().apply {
+                moveTo(x0, h * 0.18f); lineTo(x1, h * 0.5f); lineTo(x0, h * 0.82f); close()
+            }
+            when (glyph) {
+                Glyph.PLAY -> drawPath(tri(w * 0.26f, w * 0.84f), tint)
+                Glyph.PAUSE -> {
+                    drawRoundRect(tint, Offset(w * 0.2f, h * 0.15f), Size(w * 0.2f, h * 0.7f), CornerRadius(w * 0.06f))
+                    drawRoundRect(tint, Offset(w * 0.6f, h * 0.15f), Size(w * 0.2f, h * 0.7f), CornerRadius(w * 0.06f))
+                }
+                Glyph.NEXT -> {
+                    drawPath(tri(w * 0.14f, w * 0.7f), tint)
+                    drawRoundRect(tint, Offset(w * 0.74f, h * 0.18f), Size(w * 0.12f, h * 0.64f), CornerRadius(w * 0.04f))
+                }
+                Glyph.PREV -> {
+                    val p = Path().apply { moveTo(w * 0.86f, h * 0.18f); lineTo(w * 0.3f, h * 0.5f); lineTo(w * 0.86f, h * 0.82f); close() }
+                    drawPath(p, tint)
+                    drawRoundRect(tint, Offset(w * 0.14f, h * 0.18f), Size(w * 0.12f, h * 0.64f), CornerRadius(w * 0.04f))
+                }
+                Glyph.BACK15, Glyph.FWD15 -> {
+                    val back = glyph == Glyph.BACK15
+                    val sw = w * 0.08f
+                    val inset = w * 0.12f
+                    drawArc(
+                        tint, if (back) -60f else 240f, if (back) -280f else 280f, false,
+                        Offset(inset, inset), Size(w - inset * 2, h - inset * 2), style = Stroke(sw, cap = StrokeCap.Round),
+                    )
+                    val ax = if (back) w * 0.24f else w * 0.76f
+                    val dir = if (back) 1f else -1f
+                    val head = Path().apply {
+                        moveTo(ax - dir * w * 0.14f, h * 0.06f); lineTo(ax + dir * w * 0.06f, h * 0.2f); lineTo(ax - dir * w * 0.14f, h * 0.32f); close()
+                    }
+                    drawPath(head, tint)
+                }
+            }
+        }
+        if (glyph == Glyph.BACK15 || glyph == Glyph.FWD15) {
+            Text("15", style = MaterialTheme.typography.labelSmall, color = tint, modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+}

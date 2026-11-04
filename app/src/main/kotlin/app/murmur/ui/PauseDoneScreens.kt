@@ -72,8 +72,7 @@ fun PauseScreen(onBack: () -> Unit, onOpen: (Story) -> Unit) {
         TextButton(onClick = onBack, modifier = Modifier.padding(start = 10.dp, top = 6.dp).align(Alignment.Start)) { Text("Back", color = Ink.dusk) }
         Text("Pause", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 10.dp))
         Quiet(
-            if (App.faithTouches) "“In the remembrance of Allah do hearts find rest.” (13:28)"
-            else "This urge will pass. You don't have to follow it.",
+            "This urge will pass. You don't have to follow it.",
             Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
         )
         Box(Modifier.padding(vertical = 34.dp).size(250.dp), contentAlignment = Alignment.Center) {
