@@ -1,12 +1,12 @@
-﻿# Murmur
+# Murmur
 
-Audio stories that calm the heart. For everyone: fables, modern fiction, sleep stories, and (optionally) faith stories.
+Audio stories that calm the heart. For everyone: fables, wisdom tales from around the world, and sleep stories.
 
 ## Vision
-A screen-free listening app that replaces doom-scrolling with stories: Islamic and universal, public-domain and user-written, narrated by text-to-speech or by humans.
+A screen-free listening app that replaces doom-scrolling with stories: public-domain and user-written, narrated by text-to-speech or by humans.
 
 ## Decisions so far
-- Audience: general. Faith content lives on an optional "Faith & wisdom" shelf; Islamic UI touches are off by default (decided 2026-11-04)
+- Audience: general and secular. The app is not religious; the old faith shelf became "Wisdom tales" (folk tales and parables from many cultures) (decided 2026-11-04)
 - Platforms: mobile only (Android first, APK via GitHub Releases); iOS and web are out of scope for now
 - Distribution: GitHub only, no app stores. Keep copyrighted book text/audio out of the repo; content lives on the backend
 - Language: English first, Bangla later
@@ -34,7 +34,17 @@ settings were not applied on the test phone); OFL texts in `docs/licenses/`. Eve
 paper-cut night-landscape cover (`ui/Covers.kt`), seeded by its id and tinted by shelf. The player shows a
 scene strip: one band per segment, colored by the background the Director chose.
 
-## Story Director
+## Animated scenes
+`ui/Scenes.kt` draws a living scene for every background sound (rain, storm, wind, ocean, stream, forest, night, fire, desert, cave, tension, calm) on a Canvas, driven by one shared `Clock`. The player shows the scene the Director is currently using and cross-fades when it changes; Home uses the same scenes for the header and mood cards. No image files, so the APK does not grow.
+
+## Online books
+New books are not bundled. `data/RemoteContent.kt` downloads `catalog.json` (story text plus plate credits) from the GitHub release tagged `content`, and each picture the first time its story is shown; pictures are cached on the phone (Settings > Online library shows size and can clear them). Offline, the last catalog is used and covers fall back to the drawn motif. Build the catalog with the scripts kept on D: (`D:\DevData\downloads\workuild_content.py`, output in the gitignored `content/`), then publish it:
+`gh release create content content/* --title "Content" --notes "Online books"` (later: `gh release upload content content/* --clobber`). Rights and credits: `docs/licenses/IMAGES.md`.
+
+## Covers
+Every cover is the scene the story lives in plus a drawing of its subject (`ui/Motifs.kt`: tortoise and hare, lion, lighthouse, night train...). Seed stories name their motif and scene; your own stories get one guessed from the title and text (`Motif.guess`), falling back to an open book.
+
+## Story Director (shown in the app as "AI Director")
 `audio/Director.kt` reads a story and plans, per segment, who speaks (narrator / male / female character
 for quoted lines), the pace, and the background sound. It learns characters' genders from attributed lines
 ("the mouse ... she said"), drops short speech tags, and uses keyword scenes with hysteresis. Each of the
@@ -48,6 +58,8 @@ Voice packs are downloaded inside the app (Settings > Better voices) from the sh
 - **Pinned to 1.13.8 on purpose:** sherpa-onnx 2.0 removed espeak-ng, which these Piper/Kokoro models need.
 - **Measured on a Xiaomi 24115RA8EC (arm64, Android 16):** Piper (int8) generates about 2.7x faster than real time, so stories start almost instantly. Kokoro (int8) generates about 0.5x real time, so the app measures speed and waits for a head start (predictive buffering in `PlayerHub`) before playing; "Start now anyway" skips the wait.
 - **Reading pace:** Piper Ryan reads about 237 words per minute; use Speed 0.8x-0.9x for calm listening (default is 0.9x for new installs).
+- **Character voices:** the Director gives each quote a voice. Besides narrator, male and female it has *young* (small creatures, children) and *deep* (lions, giants): each takes its own voice when a second woman or man is installed, and is pitch-shifted at playback (young up about 22%, deep down about 14%, elders down 6% and slower). Cues come from words around the quote (`Director.childCues/deepCues/elderCues`). The pace is baked into Piper/Kokoro speech with real pauses between sentences (`SpeechPacing`), not stretched.
+- **Kokoro v1.0** (28 English voices, ~330 MB, experimental) is an optional pack; the library supports its lexicon settings but it has not been tried on a phone.
 - **Engines** sit behind `VoiceEngine` (`audio/TtsGenerator.kt`): Android system TTS, `SherpaEngine`, and `CompositeEngine` routing between them. Voice ids look like `sherpa:<packId>:<speakerId>`.
 
 ## Storage
