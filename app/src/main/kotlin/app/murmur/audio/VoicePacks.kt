@@ -53,7 +53,7 @@ object VoicePacks {
             id = "kokoro-multi-lang-v1_0",
             title = "Kokoro v1.0 (large, experimental)",
             desc = "The most voices: 28 English voices, US and UK, with lighter and deeper ones for characters. " +
-                "Big download (about 330 MB) and slow on a phone, so stories need a long head start.",
+                "Big and slow on a phone, so stories need a long head start.",
             archive = "kokoro-multi-lang-v1_0",
             sizeMb = 330,
             kind = PackKind.KOKORO,

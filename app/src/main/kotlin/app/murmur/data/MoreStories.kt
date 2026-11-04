@@ -7,7 +7,7 @@ object MoreStories {
     val all: List<Story> = listOf(
         Story(
             id = "seed_fox_grapes",
-            plates = listOf(Plate("crane_fox_grapes", Books.CRANE, .42f, .02f, 1f, .98f)),
+            plates = listOf(Plate("crane_fox_grapes", Books.CRANE, .6f, .02f, 1f, .98f)),
             motif = Motif.FOX_GRAPES,
             scene = AmbienceKind.FOREST,
             title = "The Fox and the Grapes",

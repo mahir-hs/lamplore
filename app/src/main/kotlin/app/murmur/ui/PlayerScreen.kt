@@ -207,13 +207,13 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
             SceneBackdrop(scene, Modifier.matchParentSize())
             Box(
                 Modifier.matchParentSize().background(
-                    Brush.verticalGradient(0f to Ink.night.copy(alpha = 0.35f), 0.25f to Color.Transparent, 0.7f to Color.Transparent, 1f to Ink.night),
+                    Brush.verticalGradient(0f to Ink.night, 0.22f to Ink.night.copy(alpha = 0.0f), 0.72f to Color.Transparent, 1f to Ink.night),
                 ),
             )
             Cover(
                 story,
                 Modifier
-                    .fillMaxHeight(0.78f)
+                    .fillMaxHeight(0.64f)
                     .aspectRatio(0.8f)
                     .then(
                         if (story.plates.isNotEmpty()) Modifier.bounceClick("Show pictures from the book") { sheet = Sheet.PICTURES }
@@ -355,7 +355,7 @@ private fun SceneScrubber(fraction: Float, segments: List<Segment>?, modifier: M
             },
     ) {
         val y = size.height / 2
-        val h = 8.dp.toPx()
+        val h = 10.dp.toPx()
         val round = CornerRadius(h / 2)
         val track = Path().apply { addRoundRect(RoundRect(0f, y - h / 2, size.width, y + h / 2, round)) }
         clipPath(track) {
@@ -371,7 +371,7 @@ private fun SceneScrubber(fraction: Float, segments: List<Segment>?, modifier: M
                         segments.forEachIndexed { i, s ->
                             val w = size.width * weights[i] / total
                             val c = sceneColor(s.ambience)
-                            drawRect(if (pass == 0) c.copy(alpha = 0.3f) else c, Offset(x, y - h / 2), Size(w + 0.5f, h))
+                            drawRect(if (pass == 0) c.copy(alpha = 0.55f) else c, Offset(x, y - h / 2), Size(w + 0.5f, h))
                             x += w
                         }
                     }

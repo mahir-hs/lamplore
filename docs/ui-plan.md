@@ -17,6 +17,14 @@ player menu, Library length filter and online status line, You screen reordered 
 reflections, online library, storage), About screen with the credits, voice preview text no longer religious.
 Phase 3 is not started.
 
+## First phone pass (2026-11-04, Xiaomi 24115RA8EC, wireless adb; screenshots in D:\DevData\shots)
+Seen working: Home, Library with Crane plates on paper mats, You, the player (transport in view, menu),
+first-run welcome, voice sample generated on the phone with no errors.
+Fixed after the pass: the player cover hid the living scene (smaller cover, soft top fade), scrubber bands
+were too faint, the Fox and the Grapes plate crop showed Crane's verse, the wolf motif was a blob,
+duplicated "330 MB" text, button heights on the welcome screen.
+Not judged yet: audio quality by ear, scene animation and battery, online library (unpublished), phases 3.
+
 ## Brief
 Murmur: audio stories that calm the heart, listened to mostly at night, to replace scrolling.
 Audience: general, adults and families. Primary job: get someone from "about to scroll" to

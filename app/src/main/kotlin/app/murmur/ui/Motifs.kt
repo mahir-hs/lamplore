@@ -248,14 +248,17 @@ private fun Pen.foxGrapes() {
 }
 
 private fun Pen.wolf() {
-    glow(-0.05f, -0.14f, 0.7f, Paper, 0.35f)
-    circle(-0.05f, -0.14f, 0.3f, Color(0xFFF8EFD8))
-    circle(0.05f, -0.2f, 0.04f, Color(0xFFE6DBC0)); circle(-0.12f, -0.06f, 0.05f, Color(0xFFE6DBC0))
+    glow(-0.2f, -0.12f, 0.7f, Paper, 0.35f)
+    circle(-0.2f, -0.12f, 0.3f, Color(0xFFF8EFD8))
+    circle(-0.1f, -0.2f, 0.04f, Color(0xFFE6DBC0)); circle(-0.28f, -0.02f, 0.05f, Color(0xFFE6DBC0))
+    // a wolf sitting in profile, head thrown back to howl, snout to the upper left
     val w = Color(0xFF0E0C14)
-    poly(w, -0.34f, 0.34f, 0.08f, 0.34f, 0.04f, 0.1f, -0.02f, -0.02f, 0.0f, -0.12f, -0.06f, -0.2f,
-        -0.14f, -0.34f, -0.2f, -0.26f, -0.22f, -0.2f, -0.28f, -0.12f, -0.3f, 0.0f, -0.36f, 0.14f)
-    poly(w, -0.02f, -0.12f, 0.03f, -0.22f, 0.04f, -0.08f)
-    // small sheep shapes on the far hill
+    poly(w,
+        -0.22f, 0.34f, -0.20f, 0.17f, -0.27f, 0.04f, -0.30f, -0.10f, -0.39f, -0.23f, -0.43f, -0.33f,
+        -0.36f, -0.34f, -0.30f, -0.28f, -0.27f, -0.39f, -0.22f, -0.27f, -0.16f, -0.14f, -0.08f, 0.0f,
+        0.02f, 0.07f, 0.10f, 0.18f, 0.20f, 0.30f, 0.12f, 0.34f,
+    )
+    // sheep on the far hill
     circle(0.3f, 0.3f, 0.04f, Paper); circle(0.4f, 0.31f, 0.035f, Paper)
 }
 

@@ -73,7 +73,7 @@ fun LibraryScreen(onOpen: (Story) -> Unit, onAdd: () -> Unit) {
                     }
                 }
                 val online = RemoteContent.status
-                if (online.isNotBlank()) Quiet(online, Modifier.padding(top = 2.dp))
+                if (online.isNotBlank() && !online.startsWith("No online library")) Quiet(online, Modifier.padding(top = 2.dp))
             }
         }
         if (query.isNotBlank()) {
