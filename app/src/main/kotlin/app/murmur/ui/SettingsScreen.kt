@@ -55,7 +55,13 @@ fun SettingsScreen() {
     }
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 22.dp)) {
-        Text("Settings", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
+        Text("You", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
+        val nights = App.streak()
+        Quiet(
+            "${App.todaySeconds / 60} minutes today, $nights night${if (nights == 1) "" else "s"} in a row.",
+            Modifier.padding(top = 6.dp),
+        )
+        GoalBlock()
 
         Heading("Narrator")
         val current = voices.firstOrNull { it.name == (App.voiceName.ifBlank { resolved }) } ?: voices.firstOrNull { it.name == resolved }

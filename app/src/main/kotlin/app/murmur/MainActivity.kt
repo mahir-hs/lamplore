@@ -11,6 +11,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -33,10 +35,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.List
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +65,9 @@ import app.murmur.audio.PlayerHub
 import app.murmur.data.Story
 import app.murmur.ui.AddStoryScreen
 import app.murmur.ui.Cover
+import app.murmur.ui.Glyph
+import app.murmur.ui.GlyphIcon
+import app.murmur.ui.bounceClick
 import app.murmur.ui.DoneScreen
 import app.murmur.ui.HomeScreen
 import app.murmur.ui.Ink
@@ -70,6 +75,7 @@ import app.murmur.ui.LibraryScreen
 import app.murmur.ui.MurmurTheme
 import app.murmur.ui.PauseScreen
 import app.murmur.ui.RunClock
+import app.murmur.ui.motionReduced
 import app.murmur.ui.PlayerScreen
 import app.murmur.ui.SettingsScreen
 
@@ -106,49 +112,63 @@ private fun Root() {
         ) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    fun open(s: Story) {
-        PlayerHub.play(s)
+    // Back from the player goes to wherever it was opened from (Tonight, Library, Pause...), not always Library.
+    var origin by rememberSaveable { mutableStateOf(Screen.HOME) }
+    fun showPlayer() {
+        if (screen != Screen.PLAYER) origin = screen
         screen = Screen.PLAYER
     }
-
-    val tabs = setOf(Screen.HOME, Screen.LIBRARY, Screen.ADD, Screen.SETTINGS)
-    BackHandler(enabled = screen != Screen.HOME) {
-        screen = if (screen == Screen.PLAYER) Screen.LIBRARY else Screen.HOME
+    fun open(s: Story) {
+        PlayerHub.play(s)
+        showPlayer()
     }
+
+    val tabs = setOf(Screen.HOME, Screen.LIBRARY, Screen.SETTINGS)
+    BackHandler(enabled = screen != Screen.HOME) {
+        screen = when (screen) {
+            Screen.PLAYER -> origin
+            Screen.ADD -> Screen.LIBRARY
+            else -> Screen.HOME
+        }
+    }
+    val reduceMotion = remember { motionReduced(ctx) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             Column {
-                if (PlayerHub.current != null && screen != Screen.PLAYER) MiniPlayer { screen = Screen.PLAYER }
+                if (PlayerHub.current != null && screen != Screen.PLAYER) MiniPlayer { showPlayer() }
                 if (screen in tabs) {
                     NavigationBar(containerColor = Ink.lamp, tonalElevation = 0.dp) {
-                        Tab(Screen.HOME, "Home", Icons.Outlined.Home, screen) { screen = it }
+                        Tab(Screen.HOME, "Tonight", Icons.Outlined.Home, screen) { screen = it }
                         Tab(Screen.LIBRARY, "Library", Icons.Outlined.List, screen) { screen = it }
-                        Tab(Screen.ADD, "Add", Icons.Outlined.Add, screen) { screen = it }
-                        Tab(Screen.SETTINGS, "Settings", Icons.Outlined.Settings, screen) { screen = it }
+                        Tab(Screen.SETTINGS, "You", Icons.Outlined.Person, screen) { screen = it }
                     }
                 }
             }
         },
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
-            RunClock()
+            RunClock(active = screen == Screen.PLAYER)
             AnimatedContent(
                 targetState = screen,
                 transitionSpec = {
-                    val up = targetState == Screen.PLAYER
-                    (fadeIn(tween(280)) + slideInVertically(tween(320)) { if (up) it / 12 else it / 40 }) togetherWith
-                        fadeOut(tween(160))
+                    if (reduceMotion) {
+                        EnterTransition.None togetherWith ExitTransition.None
+                    } else {
+                        val up = targetState == Screen.PLAYER
+                        (fadeIn(tween(280)) + slideInVertically(tween(320)) { if (up) it / 12 else it / 40 }) togetherWith
+                            fadeOut(tween(160))
+                    }
                 },
                 label = "screen",
             ) { target ->
                 when (target) {
                     Screen.HOME -> HomeScreen(::open, { screen = Screen.PAUSE }, { screen = Screen.DONE })
-                    Screen.LIBRARY -> LibraryScreen(::open)
-                    Screen.ADD -> AddStoryScreen(::open)
+                    Screen.LIBRARY -> LibraryScreen(::open) { screen = Screen.ADD }
+                    Screen.ADD -> AddStoryScreen(onSaved = ::open, onBack = { screen = Screen.LIBRARY })
                     Screen.SETTINGS -> SettingsScreen()
-                    Screen.PLAYER -> PlayerScreen({ screen = Screen.LIBRARY }, { screen = Screen.DONE })
+                    Screen.PLAYER -> PlayerScreen({ screen = origin }, { screen = Screen.DONE })
                     Screen.PAUSE -> PauseScreen({ screen = Screen.HOME }, ::open)
                     Screen.DONE -> DoneScreen { screen = Screen.HOME }
                 }
@@ -187,7 +207,7 @@ private fun MiniPlayer(onClick: () -> Unit) {
         Column {
             LinearProgressIndicator(progress = { PlayerHub.fraction }, color = Ink.ember, trackColor = Ink.lamp, modifier = Modifier.fillMaxWidth().height(2.dp))
             Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Cover(s, Modifier.width(38.dp).aspectRatio(0.78f), corner = 8.dp, animated = PlayerHub.playing)
+                Cover(s, Modifier.width(38.dp).aspectRatio(0.8f), corner = 6.dp, mat = 2.dp)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
@@ -198,15 +218,10 @@ private fun MiniPlayer(onClick: () -> Unit) {
                     )
                 }
                 Box(
-                    Modifier.size(40.dp).background(Ink.ember, CircleShape).clickable { PlayerHub.togglePlay() },
+                    Modifier.size(48.dp).background(Ink.ember, CircleShape).bounceClick(if (PlayerHub.playing) "Pause" else "Play") { PlayerHub.togglePlay() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (PlayerHub.playing) {
-                        Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
-                            Box(Modifier.width(4.dp).height(14.dp).background(Ink.onEmber, RoundedCornerShape(2.dp)))
-                            Box(Modifier.width(4.dp).height(14.dp).background(Ink.onEmber, RoundedCornerShape(2.dp)))
-                        }
-                    } else Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Ink.onEmber)
+                    GlyphIcon(if (PlayerHub.playing) Glyph.PAUSE else Glyph.PLAY, Ink.onEmber, 24.dp, if (PlayerHub.playing) "Pause" else "Play")
                 }
             }
         }

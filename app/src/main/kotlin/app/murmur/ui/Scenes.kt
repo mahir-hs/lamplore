@@ -39,14 +39,20 @@ object Clock {
     var t by mutableFloatStateOf(0f)
 }
 
-/** Drives [Clock] while the app is on screen. Call once near the root. */
+/** Drives [Clock] only while `active` (the player is open), so other screens cost no frames. */
 @Composable
-fun RunClock() {
-    LaunchedEffect(Unit) {
+fun RunClock(active: Boolean) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(active) {
+        if (!active || motionReduced(ctx)) return@LaunchedEffect // scenes stay still
         val start = withFrameNanos { it }
         while (true) withFrameNanos { Clock.t = (it - start) / 1_000_000_000f }
     }
 }
+
+/** True when the phone's "remove animations" (animator duration scale 0) is on. */
+fun motionReduced(ctx: android.content.Context): Boolean =
+    android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 
 class ScenePalette(val top: Color, val bottom: Color, val accent: Color)
 

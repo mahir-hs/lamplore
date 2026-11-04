@@ -27,7 +27,7 @@ import app.murmur.data.Categories
 import app.murmur.data.Story
 
 @Composable
-fun LibraryScreen(onOpen: (Story) -> Unit) {
+fun LibraryScreen(onOpen: (Story) -> Unit, onAdd: () -> Unit) {
     var query by remember { mutableStateOf("") }
     val all = App.visibleStories
     val results = if (query.isBlank()) emptyList() else all.filter {
@@ -56,7 +56,7 @@ fun LibraryScreen(onOpen: (Story) -> Unit) {
         }
         if (query.isNotBlank()) {
             if (results.isEmpty()) {
-                item { Quiet("No story matches \"$query\". Try a shorter word, or add your own under Add.", Modifier.padding(22.dp)) }
+                item { Quiet("No story matches \"$query\". Try a shorter word, or add your own story.", Modifier.padding(22.dp)) }
             }
             items(results, key = { it.id }) { s -> StoryRow(s) { onOpen(s) } }
         } else {
@@ -66,12 +66,12 @@ fun LibraryScreen(onOpen: (Story) -> Unit) {
                 item { Shelf(c, all.filter { it.category == c }, onOpen) }
             }
             item { Shelf("Finished", all.filter { it.id in App.completed }, onOpen) }
-            if (all.none { it.isUser }) {
-                item {
-                    Quiet(
-                        "Your own stories will appear on a shelf called Yours. Paste one under Add and Murmur reads it aloud.",
-                        Modifier.padding(horizontal = 22.dp, vertical = 24.dp),
-                    )
+            item {
+                Column(Modifier.padding(horizontal = 20.dp, vertical = 24.dp)) {
+                    if (all.none { it.isUser }) {
+                        Quiet("Your own stories appear on a shelf called Yours. Paste one in and Murmur reads it aloud.")
+                    }
+                    GhostButton("Add your own story", onAdd, Modifier.fillMaxWidth().padding(top = 12.dp))
                 }
             }
         }

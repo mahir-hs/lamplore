@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +28,7 @@ import app.murmur.data.Rights
 import app.murmur.data.Story
 
 @Composable
-fun AddStoryScreen(onSaved: (Story) -> Unit) {
+fun AddStoryScreen(onSaved: (Story) -> Unit, onBack: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
@@ -41,7 +42,8 @@ fun AddStoryScreen(onSaved: (Story) -> Unit) {
     )
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 22.dp)) {
-        Text("Add a story", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
+        TextButton(onClick = onBack, modifier = Modifier.padding(top = 6.dp)) { Text("Back", color = Ink.dusk) }
+        Text("Add a story", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 10.dp))
         Quiet("Paste or write a story. Murmur reads it aloud with the voices you've chosen, and keeps it on this phone.", Modifier.padding(top = 6.dp))
 
         OutlinedTextField(title, { title = it }, placeholder = { Text("Title") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = colors, modifier = Modifier.fillMaxWidth().padding(top = 20.dp))

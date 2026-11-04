@@ -103,7 +103,7 @@ fun DoneScreen(onBack: () -> Unit) {
     val streak = App.streak()
     Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 22.dp)) {
         TextButton(onClick = onBack, modifier = Modifier.padding(top = 6.dp)) { Text("Back", color = Ink.dusk) }
-        Text("Done for tonight", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 10.dp))
+        Text("Finish tonight", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 10.dp))
         Quiet(
             "${App.todaySeconds / 60} minutes today. $streak night${if (streak == 1) "" else "s"} in a row.",
             Modifier.padding(top = 6.dp, bottom = 18.dp),

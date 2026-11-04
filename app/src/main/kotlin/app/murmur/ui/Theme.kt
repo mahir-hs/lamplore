@@ -24,6 +24,8 @@ object Ink {
     val moss = Color(0xFF7FA38A)
     val onEmber = Color(0xFF2A1C0B)
     val line = Color(0xFF3A302A)
+    /** The mat every cover sits on. */
+    val paper = Color(0xFFEFE3CF)
 }
 
 private val Scheme = darkColorScheme(
@@ -60,10 +62,10 @@ val Sans = FontFamily(
 
 val MurmurType = Typography(
     displayLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight.W500, fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = (-0.5).sp),
-    displayMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight.W500, fontSize = 36.sp, lineHeight = 40.sp, letterSpacing = (-0.4).sp),
-    headlineMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight.W500, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.2).sp),
-    headlineSmall = TextStyle(fontFamily = Serif, fontWeight = FontWeight.W500, fontSize = 23.sp, lineHeight = 29.sp),
-    titleLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight.W600, fontSize = 20.sp, lineHeight = 26.sp),
+    displayMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight.W500, fontSize = 34.sp, lineHeight = 38.sp, letterSpacing = (-0.4).sp),
+    headlineMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight.W500, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.2).sp),
+    headlineSmall = TextStyle(fontFamily = Serif, fontWeight = FontWeight.W500, fontSize = 22.sp, lineHeight = 28.sp),
+    titleLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight.W600, fontSize = 18.sp, lineHeight = 24.sp),
     titleMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.W600, fontSize = 16.sp, lineHeight = 22.sp),
     titleSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.W600, fontSize = 14.sp, lineHeight = 20.sp),
     bodyLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.W400, fontSize = 16.sp, lineHeight = 26.sp),

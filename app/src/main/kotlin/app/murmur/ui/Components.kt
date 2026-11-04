@@ -14,7 +14,13 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.Arrangement
@@ -95,33 +101,41 @@ fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
     ) { Text(text, style = MaterialTheme.typography.labelLarge) }
 }
 
-/** A small text pill used for moods and choices. Selected = amber text on lamp, not a bordered chip. */
+/** A text pill for moods and choices: a 48 dp touch target around a smaller visible pill. */
 @Composable
 fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(if (selected) Ink.ember else Ink.lamp)
-            .bounceClick(onClick)
-            .padding(horizontal = 14.dp, vertical = 9.dp),
+            .heightIn(min = 48.dp)
+            .semantics { this.selected = selected }
+            .bounceClick(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) Ink.onEmber else Ink.moth,
-        )
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(if (selected) Ink.ember else Ink.lamp)
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) Ink.onEmber else Ink.moth,
+            )
+        }
     }
 }
 
 /** Cover with title beneath, for shelves. */
 @Composable
 fun CoverTile(story: Story, width: Dp, onClick: () -> Unit) {
+    val openLabel = "Open ${story.title}"
     val done = story.id in App.completed
-    Column(Modifier.width(width).bounceClick(onClick)) {
+    Column(Modifier.width(width).bounceClick(openLabel, onClick)) {
         Box {
-            Cover(story, Modifier.width(width).aspectRatio(0.78f))
-            if (done) Dot(Modifier.align(Alignment.TopEnd).padding(10.dp), Ink.moss)
-            if (story.id in App.favorites) Dot(Modifier.align(Alignment.TopStart).padding(10.dp), Ink.ember)
+            Cover(story, Modifier.width(width).aspectRatio(0.8f))
+            if (done) Dot(Modifier.align(Alignment.TopEnd).padding(12.dp).semantics { contentDescription = "Finished" }, Ink.moss)
+            if (story.id in App.favorites) Dot(Modifier.align(Alignment.TopStart).padding(12.dp).semantics { contentDescription = "Saved" }, Ink.ember)
         }
         Text(
             story.title,
@@ -142,8 +156,8 @@ private fun Dot(modifier: Modifier, color: Color) {
 @Composable
 fun Shelf(title: String, stories: List<Story>, onOpen: (Story) -> Unit) {
     if (stories.isEmpty()) return
-    Heading(title, Modifier.padding(horizontal = 22.dp))
-    LazyRow(contentPadding = PaddingValues(horizontal = 22.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    Heading(title, Modifier.padding(horizontal = 20.dp))
+    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items(stories, key = { it.id }) { s -> CoverTile(s, 128.dp) { onOpen(s) } }
     }
 }
@@ -152,16 +166,16 @@ fun Shelf(title: String, stories: List<Story>, onOpen: (Story) -> Unit) {
 @Composable
 fun StoryRow(story: Story, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 22.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().bounceClick("Open ${story.title}", onClick).padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Cover(story, Modifier.width(56.dp).aspectRatio(0.78f), corner = 10.dp)
+        Cover(story, Modifier.width(56.dp).aspectRatio(0.8f), corner = 8.dp, mat = 3.dp)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(story.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Quiet(story.meta())
         }
-        if (story.id in App.completed) Dot(Modifier.padding(start = 8.dp), Ink.moss)
+        if (story.id in App.completed) Dot(Modifier.padding(start = 8.dp).semantics { contentDescription = "Finished" }, Ink.moss)
     }
 }
 
@@ -173,19 +187,25 @@ fun formatMs(ms: Long): String {
 val spacedRow = Arrangement.spacedBy(8.dp)
 
 /** Spring-scale feedback on press, so every tap feels acknowledged. */
-fun Modifier.bounceClick(onClick: () -> Unit): Modifier = composed {
+fun Modifier.bounceClick(label: String? = null, onClick: () -> Unit): Modifier = composed {
     val src = remember { MutableInteractionSource() }
     val pressed by src.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(dampingRatio = 0.55f, stiffness = 500f), label = "press")
-    this.scale(scale).clickable(interactionSource = src, indication = null, onClick = onClick)
+    this.scale(scale).clickable(
+        interactionSource = src, indication = null, onClickLabel = label,
+        role = androidx.compose.ui.semantics.Role.Button, onClick = onClick,
+    )
 }
 
-enum class Glyph { PLAY, PAUSE, PREV, NEXT, BACK15, FWD15 }
+enum class Glyph { PLAY, PAUSE, PREV, NEXT, BACK15, FWD15, MOON }
 
 /** Transport icons drawn by hand (the icon pack in use has no pause or skip). */
 @Composable
-fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 28.dp) {
-    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 28.dp, description: String? = null) {
+    Box(
+        Modifier.size(size).then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
+        contentAlignment = Alignment.Center,
+    ) {
         Canvas(Modifier.fillMaxSize()) {
             val w = this.size.width
             val h = this.size.height
@@ -206,6 +226,11 @@ fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 28.dp) {
                     val p = Path().apply { moveTo(w * 0.86f, h * 0.18f); lineTo(w * 0.3f, h * 0.5f); lineTo(w * 0.86f, h * 0.82f); close() }
                     drawPath(p, tint)
                     drawRoundRect(tint, Offset(w * 0.14f, h * 0.18f), Size(w * 0.12f, h * 0.64f), CornerRadius(w * 0.04f))
+                }
+                Glyph.MOON -> {
+                    val outer = Path().apply { addOval(Rect(Offset(w * 0.12f, h * 0.12f), Size(w * 0.76f, h * 0.76f))) }
+                    val bite = Path().apply { addOval(Rect(Offset(w * 0.34f, h * 0.02f), Size(w * 0.7f, h * 0.7f))) }
+                    drawPath(Path.combine(PathOperation.Difference, outer, bite), tint)
                 }
                 Glyph.BACK15, Glyph.FWD15 -> {
                     val back = glyph == Glyph.BACK15

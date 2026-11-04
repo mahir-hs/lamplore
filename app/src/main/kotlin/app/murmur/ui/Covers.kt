@@ -1,7 +1,9 @@
 package app.murmur.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -23,20 +25,23 @@ import app.murmur.data.Story
  * are still pictures; the hero and player covers (`animated`) move.
  */
 @Composable
-fun Cover(story: Story, modifier: Modifier = Modifier, corner: Dp = 18.dp, animated: Boolean = false) {
+fun Cover(story: Story, modifier: Modifier = Modifier, corner: Dp = 10.dp, animated: Boolean = false, mat: Dp = 5.dp) {
     val scene = story.artScene
     val motif = story.artMotif
     val seed = story.id.hashCode() and 0xFFFF
     val plate = story.plates.firstOrNull()
     val img = plate?.let { rememberPlate(it.asset) }
-    Box(modifier.clip(RoundedCornerShape(corner))) {
-        Canvas(Modifier.fillMaxSize()) {
-            val t = if (animated) Clock.t else 0f
-            if (plate != null && img != null) {
-                drawPlateCover(img, plate, if (animated) 1.04f + 0.03f * kotlin.math.sin(t * 0.25f) else 1f)
-            } else {
-                drawScene(scene, t, seed)
-                drawMotif(motif, t)
+    // every cover, real plate or drawn, sits on the same paper mat so shelves read as one set
+    Box(modifier.clip(RoundedCornerShape(corner)).background(Ink.paper).padding(mat)) {
+        Box(Modifier.fillMaxSize().clip(RoundedCornerShape((corner - mat).coerceAtLeast(2.dp)))) {
+            Canvas(Modifier.fillMaxSize()) {
+                val t = if (animated) Clock.t else 0f
+                if (plate != null && img != null) {
+                    drawPlateCover(img, plate, if (animated) 1.04f + 0.03f * kotlin.math.sin(t * 0.25f) else 1f)
+                } else {
+                    drawScene(scene, t, seed)
+                    drawMotif(motif, t)
+                }
             }
         }
     }
