@@ -113,6 +113,7 @@ object App {
         app.murmur.data.History.init()
         app.murmur.data.Subs.init()
         app.murmur.data.Lists.init()
+        app.murmur.data.Searches.init()
         app.murmur.data.Subs.schedule(context)
         app.murmur.data.Backup.autoIfDue(context)
         app.murmur.data.Downloads.init()

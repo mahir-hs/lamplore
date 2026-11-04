@@ -283,13 +283,14 @@ fun LazyListScope.updatesContent(onOpenItem: (Item) -> Unit, onPlay: (Story) -> 
 // ---- Downloads ---------------------------------------------------------------------------------------
 
 /** What is downloading now (with speed and time left), and everything saved on this phone. */
-fun LazyListScope.downloadsContent(onOpenItem: (Item) -> Unit, onPlay: (Story) -> Unit) {
+fun LazyListScope.downloadsContent(byAuthor: Boolean, onByAuthor: (Boolean) -> Unit, onOpenItem: (Item) -> Unit, onPlay: (Story) -> Unit) {
     item {
         Column(Modifier.padding(horizontal = 22.dp, vertical = 4.dp)) {
             Quiet(
                 if (Downloads.saved.isEmpty() && Downloads.queued.isEmpty()) "Nothing saved yet. Open a book and tap Download, or the arrow next to a chapter."
                 else "${Downloads.saved.size} saved  ·  ${mb(Downloads.bytes().also { Downloads.rev })} on this phone. These play without internet.",
             )
+            if (Downloads.saved.size > 1) FlowRow(horizontalArrangement = spacedRow) { Pill("Group by author", byAuthor) { onByAuthor(!byAuthor) } }
         }
     }
     if (Downloads.queued.isNotEmpty()) {
@@ -346,22 +347,27 @@ fun LazyListScope.downloadsContent(onOpenItem: (Item) -> Unit, onPlay: (Story) -
     val saved = Downloads.saved.toList()
     if (saved.isNotEmpty()) {
         item { Heading("On this phone", Modifier.padding(horizontal = 20.dp)) }
-        items(saved, key = { "sv_" + it.id }) { s ->
-            val n = Downloads.count(s)
-            Row(
-                Modifier.fillMaxWidth().bounceClick("Open ${s.title}") { if (s.tracks.size > 1) onOpenItem(Listen.itemOf(s)) else onPlay(s) }.padding(horizontal = 20.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Cover(s, Modifier.width(48.dp).aspectRatio(0.8f), corner = 8.dp, mat = 3.dp)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(s.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Quiet((if (s.tracks.size > 1) "$n of ${s.tracks.size} chapters  ·  " else "") + mb(Downloads.bytes(s.id)))
+        val groups: List<Pair<String?, List<Story>>> =
+            if (byAuthor) saved.groupBy { it.author.ifBlank { "Unknown" } }.toSortedMap(compareBy { it.lowercase() }).map { (k, v) -> k to v } else listOf(null to saved)
+        groups.forEach { (heading, rows) ->
+            if (heading != null) item(key = "dgh_$heading") { Text(heading, style = MaterialTheme.typography.labelLarge, color = Ink.ember, modifier = Modifier.padding(horizontal = 22.dp, vertical = 6.dp)) }
+            items(rows, key = { "sv_" + it.id }) { s ->
+                val n = Downloads.count(s)
+                Row(
+                    Modifier.fillMaxWidth().bounceClick("Open ${s.title}") { if (s.tracks.size > 1) onOpenItem(Listen.itemOf(s)) else onPlay(s) }.padding(horizontal = 20.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Cover(s, Modifier.width(48.dp).aspectRatio(0.8f), corner = 8.dp, mat = 3.dp)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(s.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Quiet((if (s.tracks.size > 1) "$n of ${s.tracks.size} chapters  ·  " else "") + mb(Downloads.bytes(s.id)))
+                    }
+                    Text(
+                        "Remove", style = MaterialTheme.typography.labelMedium, color = Ink.dusk,
+                        modifier = Modifier.bounceClick("Remove downloads of ${s.title}") { Downloads.remove(s.id) }.padding(12.dp),
+                    )
                 }
-                Text(
-                    "Remove", style = MaterialTheme.typography.labelMedium, color = Ink.dusk,
-                    modifier = Modifier.bounceClick("Remove downloads of ${s.title}") { Downloads.remove(s.id) }.padding(12.dp),
-                )
             }
         }
     }
@@ -370,7 +376,7 @@ fun LazyListScope.downloadsContent(onOpenItem: (Item) -> Unit, onPlay: (Story) -
 // ---- one audiobook or show ----------------------------------------------------------------------------------
 
 @Composable
-fun Detail(item: Item, onOpen: (Story) -> Unit, onBack: () -> Unit) {
+fun Detail(item: Item, onOpen: (Story) -> Unit, onBack: () -> Unit, onAuthor: (String) -> Unit = {}, onOpenItem: (Item) -> Unit = {}) {
     var book by remember { mutableStateOf<Story?>(null) }
     var eps by remember { mutableStateOf<List<Story>?>(null) }
     var failed by remember { mutableStateOf(false) }
@@ -391,7 +397,10 @@ fun Detail(item: Item, onOpen: (Story) -> Unit, onBack: () -> Unit) {
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text(item.title, style = MaterialTheme.typography.titleLarge, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                        if (item.author.isNotBlank()) Quiet(item.author, Modifier.padding(top = 4.dp))
+                        if (item.author.isNotBlank()) Text(
+                            item.author + if (!item.isShow) "  ›" else "", style = MaterialTheme.typography.bodyMedium, color = if (item.isShow) Ink.dusk else Ink.ember,
+                            modifier = Modifier.padding(top = 4.dp).then(if (item.isShow) Modifier else Modifier.bounceClick("All books by ${item.author}") { onAuthor(item.author) }),
+                        )
                         val b = book
                         if (b != null) {
                             val secs = b.tracks.sumOf { it.seconds }
@@ -497,6 +506,7 @@ fun Detail(item: Item, onOpen: (Story) -> Unit, onBack: () -> Unit) {
                 }
             }
         }
+        if (b != null) item { SimilarRow(item, b.tags, onOpenItem) }
         item { Spacer(Modifier.height(28.dp)) }
     }
 }

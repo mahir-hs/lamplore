@@ -5,6 +5,7 @@ import android.util.Xml
 import androidx.compose.runtime.mutableStateListOf
 import app.murmur.App
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -118,9 +119,9 @@ object Listen {
     // ---- Browsing ------------------------------------------------------------------------------
 
     /** Items from the Internet Archive (it hosts all of LibriVox, about 22,000 free audiobooks), most popular first. */
-    suspend fun archive(query: String, rows: Int = 24, page: Int = 1): List<Item> = cached("a|$query|$rows|$page") {
+    suspend fun archive(query: String, rows: Int = 24, page: Int = 1, sort: String = "downloads desc"): List<Item> = cached("a|$query|$rows|$page|$sort") {
         val u = "https://archive.org/advancedsearch.php?q=${enc(query)}&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator" +
-            "&sort%5B%5D=downloads+desc&rows=$rows&page=$page&output=json"
+            "&sort%5B%5D=${enc(sort)}&rows=$rows&page=$page&output=json"
         val docs = JSONObject(get(u)).getJSONObject("response").getJSONArray("docs")
         (0 until docs.length()).map {
             val d = docs.getJSONObject(it)
@@ -136,6 +137,29 @@ object Listen {
         if (terms.isEmpty()) return emptyList()
         val f = terms.joinToString(" AND ") { "(title:$it* OR creator:$it* OR subject:$it*)" }
         return archive("(collection:librivoxaudio OR collection:oldtimeradio) AND $AUDIO AND $f", rows = 40)
+    }
+
+    /** One search across your own titles, audiobooks (and old-time radio) and shows, exact matches first. */
+    suspend fun searchAll(text: String): Merged = kotlinx.coroutines.coroutineScope {
+        val books = async { searchBooks(text) }
+        val shows = async { searchShows(text, 15) }
+        val q = text.trim()
+        val mine = (starred.toList() + Downloads.saved.map { itemOf(it) } + Subs.shows.map { it.item })
+            .distinctBy { it.key }.filter { it.title.contains(q, true) || it.author.contains(q, true) }
+        fun rank(i: Item) = when {
+            i.title.equals(q, true) -> 0
+            i.title.startsWith(q, true) -> 1
+            i.title.contains(q, true) -> 2
+            else -> 3
+        }
+        Merged(mine.sortedBy(::rank), books.await().sortedBy(::rank), shows.await().sortedBy(::rank))
+    }
+
+    /** "More like this": books by the same author or on the same subjects, most popular first. */
+    suspend fun similar(item: Item, tags: List<String>): List<Item> {
+        val parts = tags.take(2).map { "subject:\"$it\"" } + if (item.author.isNotBlank() && item.author != "Unknown") listOf("creator:\"${item.author.replace("\"", "")}\"") else emptyList()
+        if (parts.isEmpty()) return emptyList()
+        return archive("$LIBRIVOX AND (${parts.joinToString(" OR ")}) AND -identifier:${item.ref}", rows = 14)
     }
 
     /** Apple's top podcasts in one genre, with feed links. */

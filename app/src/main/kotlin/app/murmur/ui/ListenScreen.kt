@@ -67,8 +67,12 @@ private enum class Kind { BOOKS, PODCASTS, UPDATES, MYLIST, DOWNLOADS }
 private class ShelfDef(val title: String, val preview: suspend () -> List<Item>, val page: suspend (Int) -> List<Item>)
 
 private const val L = Listen.LIBRIVOX
-private fun archiveShelf(title: String, query: String) =
-    ShelfDef(title, { Listen.archive(query) }, { p -> Listen.archive(query, rows = 36, page = p) })
+private fun archiveShelf(title: String, query: String, sort: String = "downloads desc", unseenOnly: Boolean = false) =
+    ShelfDef(
+        title,
+        { Listen.archive(query, sort = sort).let { l -> if (unseenOnly) l.filter { !History.seen(it.key) } else l } },
+        { p -> Listen.archive(query, rows = 36, page = p, sort = sort) },
+    )
 
 private fun books(title: String, subject: String) = archiveShelf(title, "$L AND subject:\"$subject\"")
 private fun chart(title: String, genre: Int) =
@@ -109,6 +113,52 @@ private val showShelves = listOf(
     chart("Comedy", 1303),
 )
 
+/** The Discover feed: what is new and trending, and picks from the hour and from what you have been listening to. */
+private fun discoverShelves(): List<ShelfDef> {
+    val hour = java.time.LocalTime.now().hour
+    val tag = app.murmur.data.Activity.byTag(365).firstOrNull()?.first
+    val out = mutableListOf<ShelfDef>()
+    if (hour >= 21 || hour < 5) {
+        out += archiveShelf("For tonight", "$L AND (subject:fables OR subject:\"fairy tales\" OR subject:poetry OR subject:\"short stories\")", "week desc", true)
+    }
+    if (tag != null) out += archiveShelf("Because you like $tag", "$L AND subject:\"${tag.lowercase()}\"", "downloads desc", true)
+    out += archiveShelf("New releases", L, "publicdate desc")
+    out += archiveShelf("Trending this week", L, "week desc")
+    return out
+}
+
+/** A short "what next" card: carry on, or a pick from your taste you have not heard. */
+@Composable
+private fun WhatNext(onOpenItem: (Item) -> Unit, onPlay: (Story) -> Unit) {
+    val going = Listen.recent.firstOrNull { App.progressFraction(it.id) > 0f && it.id !in App.completed }
+    val tag = remember { app.murmur.data.Activity.byTag(365).firstOrNull()?.first }
+    val pick by produceState<Item?>(null, tag) {
+        if (tag != null) value = Listen.archive("$L AND subject:\"${tag.lowercase()}\"").firstOrNull { !History.seen(it.key) }
+    }
+    if (going == null && pick == null) return
+    Column(Modifier.padding(horizontal = 22.dp).padding(top = 6.dp)) {
+        Heading("What next?")
+        if (going != null) RecentRow(going) { onPlay(going) }
+        pick?.let { p ->
+            Quiet("Because you like $tag", Modifier.padding(top = 4.dp))
+            ItemRow(p) { onOpenItem(p) }
+        }
+    }
+}
+
+/** "More like this" under a book: the same author or subjects. */
+@Composable
+fun SimilarRow(item: Item, tags: List<String>, onOpen: (Item) -> Unit) {
+    val list by produceState<List<Item>?>(null, item.key) { value = Listen.similar(item, tags) }
+    val l = list?.filter { it.key != item.key }
+    if (l.isNullOrEmpty()) return
+    Heading("More like this", Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        items(l, key = { "sim_" + it.key }) { ItemTile(it, Modifier.width(110.dp)) { onOpen(it) } }
+    }
+    Spacer(Modifier.height(16.dp))
+}
+
 /**
  * Free recorded audio, streamed or saved for offline: audiobooks (LibriVox, old-time radio) and
  * podcasts. Browse by shelf (tap a shelf's name for everything in it), search, or open a title.
@@ -120,11 +170,16 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
     var detail by remember { mutableStateOf<Item?>(null) }
     var seeAll by remember { mutableStateOf<ShelfDef?>(null) }
     val myState = remember { MyListState() }
+    var dlByAuthor by remember { mutableStateOf(false) }
     BackHandler(enabled = detail != null || seeAll != null) { if (detail != null) detail = null else seeAll = null }
 
     val d = detail
     if (d != null) {
-        Detail(d, onOpen, onBack = { detail = null })
+        Detail(
+            d, onOpen, onBack = { detail = null },
+            onAuthor = { a -> detail = null; seeAll = archiveShelf(a, "$L AND creator:\"${a.replace("\"", "")}\"") },
+            onOpenItem = { detail = it },
+        )
         return
     }
     val all = seeAll
@@ -134,11 +189,14 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
     }
 
     val q = query.trim()
-    val results by produceState<List<Item>?>(null, q, kind) {
+    val results by produceState<app.murmur.data.Merged?>(null, q) {
         value = null
         if (q.length >= 2) {
             delay(450) // wait for the typing to settle
-            value = if (kind == Kind.BOOKS) Listen.searchBooks(q) else Listen.searchShows(q)
+            val m = Listen.searchAll(q)
+            value = m
+            if (!m.isEmpty) app.murmur.data.Searches.addRecent(q)
+            app.murmur.data.Searches.opened(q, m.books)
         }
     }
 
@@ -158,7 +216,7 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
                 if (kind == Kind.BOOKS || kind == Kind.PODCASTS) OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = { Text(if (kind == Kind.BOOKS) "Title, author or subject" else "Search podcasts") },
+                    placeholder = { Text("Search books, shows and your list") },
                     leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = Ink.dusk) },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
@@ -172,13 +230,25 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
         } else if (kind == Kind.MYLIST) {
             myListContent(myState, onOpenItem = { detail = it }, onPlay = onOpen)
         } else if (kind == Kind.DOWNLOADS) {
-            downloadsContent(onOpenItem = { detail = it }, onPlay = onOpen)
+            downloadsContent(dlByAuthor, { dlByAuthor = it }, onOpenItem = { detail = it }, onPlay = onOpen)
         } else if (q.length >= 2) {
             val r = results
+            item {
+                val saved = app.murmur.data.Searches.isSaved(q)
+                val tips = app.murmur.data.Searches.suggest(q)
+                FlowRow(horizontalArrangement = spacedRow, modifier = Modifier.padding(horizontal = 22.dp)) {
+                    Pill(if (saved) "Search saved" else "Save this search", saved) { app.murmur.data.Searches.toggleSaved(q) }
+                    tips.forEach { t -> Pill(t, false) { query = t } }
+                }
+            }
             when {
                 r == null -> item { Quiet("Looking...", Modifier.padding(22.dp)) }
-                r.isEmpty() -> item { Quiet("Nothing found for \"$q\". Check your connection or try another word.", Modifier.padding(22.dp)) }
-                else -> items(r, key = { it.key }) { ItemRow(it) { detail = it } }
+                r.isEmpty -> item { Quiet("Nothing found for \"$q\". Check your connection or try another word.", Modifier.padding(22.dp)) }
+                else -> {
+                    if (r.mine.isNotEmpty()) { item { Heading("In your list", Modifier.padding(horizontal = 20.dp)) }; items(r.mine, key = { "m_" + it.key }) { ItemRow(it) { detail = it } } }
+                    if (r.books.isNotEmpty()) { item { Heading("Audiobooks", Modifier.padding(horizontal = 20.dp)) }; items(r.books, key = { "b_" + it.key }) { ItemRow(it) { detail = it } } }
+                    if (r.shows.isNotEmpty()) { item { Heading("Shows", Modifier.padding(horizontal = 20.dp)) }; items(r.shows, key = { "s_" + it.key }) { ItemRow(it) { detail = it } } }
+                }
             }
         } else {
             val mine = Listen.recent.filter { (kind == Kind.PODCASTS) == (it.category == Categories.PODCASTS) }.take(5)
@@ -186,7 +256,32 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
                 item { Heading("Continue listening", Modifier.padding(horizontal = 20.dp)) }
                 items(mine, key = { "r_" + it.id }) { s -> RecentRow(s) { onOpen(s) } }
             }
-            val shelves = if (kind == Kind.BOOKS) bookShelves else showShelves
+            val savedQ = app.murmur.data.Searches.saved.toList()
+            val recentQ = app.murmur.data.Searches.recent.toList().filter { it !in savedQ }.take(6)
+            if (savedQ.isNotEmpty() || recentQ.isNotEmpty()) {
+                item {
+                    Column(Modifier.padding(horizontal = 22.dp)) {
+                        if (savedQ.isNotEmpty()) {
+                            Quiet("Saved searches")
+                            FlowRow(horizontalArrangement = spacedRow) {
+                                savedQ.forEach { sq ->
+                                    val n = app.murmur.data.Searches.fresh[sq] ?: 0
+                                    Pill(if (n > 0) "$sq (+$n)" else sq, n > 0) { query = sq }
+                                }
+                            }
+                        }
+                        if (recentQ.isNotEmpty()) {
+                            Quiet("Recent")
+                            FlowRow(horizontalArrangement = spacedRow) {
+                                recentQ.forEach { rq -> Pill(rq, false) { query = rq } }
+                                Pill("Clear", false) { app.murmur.data.Searches.clearRecent() }
+                            }
+                        }
+                    }
+                }
+            }
+            if (kind == Kind.BOOKS) item { WhatNext(onOpenItem = { detail = it }, onPlay = onOpen) }
+            val shelves = if (kind == Kind.BOOKS) discoverShelves() + bookShelves else showShelves
             items(shelves, key = { kind.name + it.title }) { def -> ShelfRow(def, onAll = { seeAll = def }) { detail = it } }
         }
         item { Spacer(Modifier.height(28.dp)) }
@@ -260,7 +355,7 @@ private fun SeeAll(def: ShelfDef, onOpen: (Item) -> Unit, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ItemTile(item: Item, modifier: Modifier, onClick: () -> Unit) {
+fun ItemTile(item: Item, modifier: Modifier, onClick: () -> Unit) {
     val seen = History.seen(item.key)
     Column(modifier.alpha(if (seen) 0.6f else 1f).bounceClick("Open ${item.title}", onClick)) {
         ItemArt(item, Modifier.fillMaxWidth().aspectRatio(0.8f), seen = seen)

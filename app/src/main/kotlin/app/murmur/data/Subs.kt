@@ -138,7 +138,7 @@ object Subs {
 
     /** Look for new episodes in every followed show. Returns how many were found. */
     suspend fun checkAll(ctx: Context, notify: Boolean = true): Int {
-        if (checking || shows.isEmpty()) return 0
+        if (checking || (shows.isEmpty() && Searches.saved.isEmpty())) return 0
         checking = true
         var found = 0
         val fresh = mutableListOf<UpdateEntry>()
@@ -165,7 +165,21 @@ object Subs {
             checking = false
         }
         if (notify && fresh.isNotEmpty()) notifyNew(ctx, fresh)
+        // saved searches: anything new on LibriVox that matches?
+        val hits = runCatching { Searches.checkSaved() }.getOrDefault(emptyList())
+        if (notify && hits.isNotEmpty()) notifyOther(ctx, "New audiobooks", "New results for " + hits.take(3).joinToString(", ") { "\"$it\"" })
         return found
+    }
+
+    private fun notifyOther(ctx: Context, title: String, text: String) {
+        val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
+        if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(NotificationChannel("updates", "New episodes", NotificationManager.IMPORTANCE_LOW))
+        val open = PendingIntent.getActivity(
+            ctx, 1, Intent(ctx, app.murmur.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val b = if (Build.VERSION.SDK_INT >= 26) android.app.Notification.Builder(ctx, "updates") else android.app.Notification.Builder(ctx)
+        runCatching { nm.notify(4109, b.setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle(title).setContentText(text).setContentIntent(open).setAutoCancel(true).build()) }
     }
 
     private fun notifyNew(ctx: Context, fresh: List<UpdateEntry>) {
@@ -191,7 +205,7 @@ object Subs {
 
     fun schedule(ctx: Context) {
         val wm = WorkManager.getInstance(ctx)
-        if (intervalHours <= 0 || shows.isEmpty()) { wm.cancelUniqueWork("murmur-updates"); return }
+        if (intervalHours <= 0 || (shows.isEmpty() && Searches.saved.isEmpty())) { wm.cancelUniqueWork("murmur-updates"); return }
         val req = PeriodicWorkRequestBuilder<UpdateWorker>(intervalHours.toLong(), TimeUnit.HOURS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
