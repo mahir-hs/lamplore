@@ -13,23 +13,33 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-/** A podcast show found by search; its episodes are fetched from the feed when opened. */
-data class Show(val name: String, val author: String, val feedUrl: String, val art: String)
+/**
+ * One thing to browse: an audiobook / radio item (ref = Internet Archive id) or a podcast show
+ * (ref = feed link, isShow = true). Chapters and episodes are fetched only when it is opened.
+ */
+data class Item(val key: String, val title: String, val author: String, val art: String, val ref: String, val isShow: Boolean)
 
 /**
  * Free recorded audio that is streamed, never copied or re-hosted:
- *  - LibriVox: public-domain audiobooks read by volunteers (official JSON API, no key).
- *  - Podcasts: found with Apple's free iTunes Search API (no key); episodes come from the show's own
+ *  - Audiobooks: LibriVox (public domain, read by volunteers) and old-time radio, both hosted by the
+ *    Internet Archive, whose search and file-list APIs need no key.
+ *  - Podcasts: Apple's free iTunes charts and Search API (no key); episodes come from the show's own
  *    RSS feed, the same way every podcast app works.
  * Anything played is remembered (title, links, progress) so it can be resumed from the Listen tab.
  */
 object Listen {
     private const val UA = "Murmur/0.4 (+https://github.com/mahir-hs/murmur)"
 
+    private const val AUDIO = "mediatype:audio AND (language:English OR language:eng)"
+    const val LIBRIVOX = "collection:librivoxaudio AND $AUDIO"
+    const val RADIO = "collection:oldtimeradio AND mediatype:audio AND -identifier:lumedwards"
+
     /** Recently played streams, newest first. Saved so they can be resumed later. */
     val recent = mutableStateListOf<Story>()
 
     private val prefs get() = App.context.getSharedPreferences("murmur_listen", Context.MODE_PRIVATE)
+    private val cache = HashMap<String, List<Item>>()
+    private val bookCache = HashMap<String, Story>()
 
     fun init() {
         runCatching {
@@ -42,6 +52,7 @@ object Listen {
                         o.getString("id"), o.getString("title"), o.getString("author"), o.getString("category"),
                         o.optString("summary"),
                         (0 until t.length()).map { k -> t.getJSONObject(k).let { Track(it.getString("t"), it.getString("u"), it.getInt("s")) } },
+                        o.optString("art"),
                     ),
                 )
             }
@@ -57,79 +68,124 @@ object Listen {
         persist()
     }
 
+    fun forget(id: String) {
+        recent.removeAll { it.id == id }
+        persist()
+    }
+
     private fun persist() {
         val a = JSONArray()
         recent.forEach { r ->
             a.put(
                 JSONObject().put("id", r.id).put("title", r.title).put("author", r.author)
-                    .put("category", r.category).put("summary", r.summary)
+                    .put("category", r.category).put("summary", r.summary).put("art", r.art)
                     .put("tracks", JSONArray().also { ta -> r.tracks.forEach { ta.put(JSONObject().put("t", it.title).put("u", it.url).put("s", it.seconds)) } }),
             )
         }
         prefs.edit().putString("recent", a.toString()).apply()
     }
 
-    fun forget(id: String) {
-        recent.removeAll { it.id == id }
-        persist()
-    }
-
-    private fun stream(id: String, title: String, author: String, category: String, summary: String, tracks: List<Track>) = Story(
+    private fun stream(id: String, title: String, author: String, category: String, summary: String, tracks: List<Track>, art: String = "") = Story(
         id = id, title = title, author = author, category = category, moods = setOf("calm"),
-        summary = summary, body = "", rights = if (category == Categories.AUDIOBOOKS) "Public domain, read by LibriVox volunteers" else "Streamed from the publisher's feed",
-        tracks = tracks,
+        summary = summary, body = "",
+        rights = if (category == Categories.PODCASTS) "Streamed from the publisher's feed" else "Free recording hosted by the Internet Archive (LibriVox is public domain)",
+        tracks = tracks, art = art,
     )
 
-    // ---- LibriVox ------------------------------------------------------------------------------
+    // ---- Browsing ------------------------------------------------------------------------------
 
-    /** Audiobooks whose title or author starts with [query] (the LibriVox API matches from the start). */
-    suspend fun audiobooks(query: String, limit: Int = 30): List<Story> = withContext(Dispatchers.IO) {
-        val q = enc("^" + query.trim())
-        val seen = LinkedHashMap<String, Story>()
-        for (field in listOf("title", "author")) {
-            runCatching {
-                val json = JSONObject(get("https://librivox.org/api/feed/audiobooks/?format=json&extended=1&limit=$limit&$field=$q"))
-                val books = json.optJSONArray("books") ?: return@runCatching
-                for (i in 0 until books.length()) book(books.getJSONObject(i))?.let { seen.putIfAbsent(it.id, it) }
-            }
+    /** Items from the Internet Archive (it hosts all of LibriVox, about 22,000 free audiobooks), most popular first. */
+    suspend fun archive(query: String, rows: Int = 24, page: Int = 1): List<Item> = cached("a|$query|$rows|$page") {
+        val u = "https://archive.org/advancedsearch.php?q=${enc(query)}&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator" +
+            "&sort%5B%5D=downloads+desc&rows=$rows&page=$page&output=json"
+        val docs = JSONObject(get(u)).getJSONObject("response").getJSONArray("docs")
+        (0 until docs.length()).map {
+            val d = docs.getJSONObject(it)
+            val id = d.getString("identifier")
+            val creator = d.optJSONArray("creator")?.optString(0) ?: d.optString("creator")
+            Item("ia_$id", d.optString("title").ifBlank { id }.trim(), if (creator == "null") "" else creator, "https://archive.org/services/img/$id", id, false)
         }
-        seen.values.toList()
     }
 
-    private fun book(o: JSONObject): Story? {
-        val secs = o.optJSONArray("sections") ?: return null
-        val tracks = (0 until secs.length()).mapNotNull {
-            val s = secs.getJSONObject(it)
-            val url = s.optString("listen_url")
-            if (url.isBlank()) null else Track(s.optString("title").ifBlank { "Part ${it + 1}" }, url.replace("http://", "https://"), s.optString("playtime").toIntOrNull() ?: 0)
-        }
-        if (tracks.isEmpty()) return null
-        val au = o.optJSONArray("authors")?.let { a ->
-            (0 until a.length()).joinToString(", ") { a.getJSONObject(it).let { x -> "${x.optString("first_name")} ${x.optString("last_name")}".trim() } }
-        }.orEmpty().ifBlank { "Unknown" }
-        val desc = o.optString("description").replace(Regex("<[^>]*>"), "").replace(Regex("\\s+"), " ").trim()
-        return stream("lv_${o.getString("id")}", o.getString("title").trim(), au, Categories.AUDIOBOOKS, desc.take(160), tracks)
+    /** Search over audiobooks and old-time radio by title, author or subject. */
+    suspend fun searchBooks(text: String): List<Item> {
+        val terms = text.replace(Regex("[^\\p{L}\\p{N} ]"), " ").trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(5)
+        if (terms.isEmpty()) return emptyList()
+        val f = terms.joinToString(" AND ") { "(title:$it* OR creator:$it* OR subject:$it*)" }
+        return archive("(collection:librivoxaudio OR collection:oldtimeradio) AND $AUDIO AND $f", rows = 40)
     }
 
-    // ---- Podcasts ------------------------------------------------------------------------------
+    /** Apple's top podcasts in one genre, with feed links. */
+    suspend fun topShows(genre: Int, limit: Int = 25): List<Item> = cached("t|$genre|$limit") {
+        val feed = JSONObject(get("https://itunes.apple.com/us/rss/toppodcasts/limit=$limit/genre=$genre/json")).getJSONObject("feed")
+        val entries = feed.optJSONArray("entry") ?: return@cached emptyList()
+        val ids = (0 until entries.length()).joinToString(",") {
+            entries.getJSONObject(it).getJSONObject("id").getJSONObject("attributes").getString("im:id")
+        }
+        shows(JSONObject(get("https://itunes.apple.com/lookup?entity=podcast&id=$ids")))
+    }
 
-    suspend fun shows(query: String, limit: Int = 25): List<Show> = withContext(Dispatchers.IO) {
+    suspend fun searchShows(query: String, limit: Int = 30): List<Item> = cached("s|$query|$limit") {
+        shows(JSONObject(get("https://itunes.apple.com/search?media=podcast&limit=$limit&term=${enc(query.trim())}")))
+    }
+
+    private fun shows(json: JSONObject): List<Item> {
+        val r = json.optJSONArray("results") ?: return emptyList()
+        return (0 until r.length()).mapNotNull {
+            val o = r.getJSONObject(it)
+            val feed = o.optString("feedUrl")
+            if (feed.isBlank()) null
+            else Item(
+                "pc_${feed.hashCode().toUInt()}", o.optString("collectionName"), o.optString("artistName"),
+                o.optString("artworkUrl600").ifBlank { o.optString("artworkUrl100") }, feed, true,
+            )
+        }
+    }
+
+    private suspend fun cached(key: String, load: () -> List<Item>): List<Item> = withContext(Dispatchers.IO) {
+        synchronized(cache) { cache[key] }?.let { return@withContext it }
+        val r = runCatching(load).getOrDefault(emptyList())
+        if (r.isNotEmpty()) synchronized(cache) { cache[key] = r }
+        r
+    }
+
+    // ---- One audiobook -------------------------------------------------------------------------
+
+    /** Full book (all chapters as tracks) from the Internet Archive item's file list. */
+    suspend fun book(item: Item): Story? = withContext(Dispatchers.IO) {
+        synchronized(bookCache) { bookCache[item.ref] }?.let { return@withContext it }
         runCatching {
-            val json = JSONObject(get("https://itunes.apple.com/search?media=podcast&limit=$limit&term=${enc(query.trim())}"))
-            val r = json.optJSONArray("results") ?: return@runCatching emptyList()
-            (0 until r.length()).mapNotNull {
-                val o = r.getJSONObject(it)
-                val feed = o.optString("feedUrl")
-                if (feed.isBlank()) null else Show(o.optString("collectionName"), o.optString("artistName"), feed, o.optString("artworkUrl100"))
+            val j = JSONObject(get("https://archive.org/metadata/${item.ref}"))
+            val files = j.getJSONArray("files")
+            val all = (0 until files.length()).map { files.getJSONObject(it) }
+            val pick = listOf("64Kbps MP3", "VBR MP3", "128Kbps MP3", "MP3").firstNotNullOfOrNull { fmt ->
+                all.filter { it.optString("format") == fmt }.takeIf { it.isNotEmpty() }
+            } ?: all.filter { it.optString("name").endsWith(".mp3", true) }
+            val tracks = pick.sortedBy { it.optString("name") }.mapIndexed { i, f ->
+                val name = f.getString("name")
+                val len = f.optString("length")
+                Track(
+                    f.optString("title").ifBlank { name.substringBeforeLast('.') }.ifBlank { "Part ${i + 1}" },
+                    "https://archive.org/download/${item.ref}/${android.net.Uri.encode(name)}",
+                    if (':' in len) duration(len) else len.toDoubleOrNull()?.toInt() ?: 0,
+                )
             }
-        }.getOrDefault(emptyList())
+            if (tracks.isEmpty()) return@runCatching null
+            val m = j.optJSONObject("metadata")
+            val desc = m?.opt("description")?.let { if (it is JSONArray) it.optString(0) else it.toString() }.orEmpty()
+                .replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim()
+            val radio = m?.opt("collection").toString().contains("oldtimeradio")
+            stream(item.key, item.title, item.author.ifBlank { "Unknown" }, if (radio) "Old-time radio" else Categories.AUDIOBOOKS, desc, tracks, item.art)
+                .also { synchronized(bookCache) { bookCache[item.ref] = it } }
+        }.getOrNull()
     }
+
+    // ---- Podcast episodes ----------------------------------------------------------------------
 
     /** Latest episodes of a show, read from its RSS feed. */
-    suspend fun episodes(show: Show, max: Int = 40): List<Story> = withContext(Dispatchers.IO) {
+    suspend fun episodes(show: Item, max: Int = 40): List<Story> = withContext(Dispatchers.IO) {
         runCatching {
-            val conn = open(show.feedUrl)
-            conn.inputStream.use { ins ->
+            open(show.ref).inputStream.use { ins ->
                 val p = Xml.newPullParser()
                 p.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
                 p.setInput(ins, null)
@@ -149,7 +205,10 @@ object Listen {
                         XmlPullParser.END_TAG -> if (p.name == "item") {
                             inItem = false
                             if (url.isNotBlank() && title.isNotBlank()) {
-                                out += stream("pc_${(show.feedUrl + url).hashCode().toUInt()}", title, show.name, Categories.PODCASTS, desc.take(160), listOf(Track(title, url.replace("http://", "https://"), dur)))
+                                out += stream(
+                                    "pe_${(show.ref + url).hashCode().toUInt()}", title, show.title, Categories.PODCASTS, desc.take(160),
+                                    listOf(Track(title, url.replace("http://", "https://"), dur)), show.art,
+                                )
                             }
                         }
                     }

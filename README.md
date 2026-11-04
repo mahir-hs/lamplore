@@ -42,11 +42,11 @@ New books are not bundled. `data/RemoteContent.kt` downloads `catalog.json` (sto
 `gh release create content content/* --title "Content" --notes "Online books"` (later: `gh release upload content content/* --clobber`). Rights and credits: `docs/licenses/IMAGES.md`.
 
 ## Listen: free audiobooks and podcasts (streamed)
-`data/Listen.kt` + `ui/ListenScreen.kt` (tab "Listen"). Nothing is bundled or re-hosted; everything is looked up live and streamed.
-- **Audiobooks:** LibriVox official JSON API (`librivox.org/api/feed/audiobooks`, no key). Public-domain books read by volunteers. The API matches titles and author last names from the start of the word, so search is prefix-only.
-- **Podcasts:** Apple's free iTunes Search API (no key) finds shows; episodes come from the show's own RSS feed (`feedUrl`), like any podcast app.
-- Playback reuses `PlayerHub` (`Story.tracks` non-empty = stream): background service, lock screen, sleep timer, resume per story. Streams skip the Director, voices and background sound. Recently played streams are kept in `murmur_listen` prefs.
-- Not done yet: downloading for offline, podcast artwork, subscriptions.
+`data/Listen.kt`, `ui/ListenScreen.kt`, `ui/RemoteImage.kt` (tab "Listen"). Nothing is bundled or re-hosted; everything is looked up live and streamed.
+- **Audiobooks:** the Internet Archive hosts all of LibriVox (about 22,000 free public-domain audiobooks) plus old-time radio. Shelves are live `advancedsearch` queries sorted by downloads (children, fairy tales, fables, mystery, poetry...). A book opens through `archive.org/metadata/<id>` (chapters = 64 kbps MP3 files) and its cover is `archive.org/services/img/<id>`. Search matches title, author or subject.
+- **Podcasts:** Apple's free iTunes charts (`rss/toppodcasts/genre=<id>`) and Search API, no key. Episodes are read from the show's own RSS feed, like any podcast app.
+- Playback reuses `PlayerHub` (`Story.tracks` non-empty = stream): background service, lock screen, sleep timer, per-story resume, 0.8x-2x speed. Streams skip the Director, voices and background sound. Covers are downloaded once into the app cache. Recently played items are kept in the `murmur_listen` prefs.
+- Not done yet: offline download, subscriptions, episode progress bars.
 
 ## Covers
 Every cover is the scene the story lives in plus a drawing of its subject (`ui/Motifs.kt`: tortoise and hare, lion, lighthouse, night train...). Seed stories name their motif and scene; your own stories get one guessed from the title and text (`Motif.guess`), falling back to an open book.

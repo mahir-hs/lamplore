@@ -15,6 +15,8 @@ data class Story(
     val plates: List<Plate> = emptyList(),
     /** Recorded audio streamed from the internet (LibriVox books, podcast episodes). Empty = read aloud by Murmur. */
     val tracks: List<Track> = emptyList(),
+    /** Cover picture link for streamed audio (blank = drawn cover). */
+    val art: String = "",
 ) {
     val isStream: Boolean get() = tracks.isNotEmpty()
     val artMotif: Motif get() = motif ?: Motif.guess(title, body)

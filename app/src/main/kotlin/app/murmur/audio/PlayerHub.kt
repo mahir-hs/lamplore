@@ -274,6 +274,18 @@ object PlayerHub {
         Listen.remember(story)
     }
 
+    /** Start a recorded book at a chosen chapter. */
+    fun playFrom(story: Story, index: Int) {
+        val p = player
+        if (current?.id == story.id && streaming && p.mediaItemCount > index) {
+            p.seekTo(index, 0)
+            p.play()
+        } else {
+            App.saveProgress(story.id, index, 0)
+            play(story)
+        }
+    }
+
     fun updateAmbience() {
         if (!::bed.isInitialized) return
         bed.update(nowAmbience, nowMusic, App.ambienceVolume, App.musicVolume, exo?.isPlaying == true)

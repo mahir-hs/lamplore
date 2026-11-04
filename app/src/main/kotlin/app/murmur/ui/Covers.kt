@@ -35,7 +35,9 @@ fun Cover(story: Story, modifier: Modifier = Modifier, corner: Dp = 10.dp, anima
     // every cover, real plate or drawn, sits on the same paper mat so shelves read as one set
     Box(modifier.clip(RoundedCornerShape(corner)).background(Ink.paper).padding(mat)) {
         Box(Modifier.fillMaxSize().clip(RoundedCornerShape((corner - mat).coerceAtLeast(2.dp)))) {
-            if (animated) {
+            if (story.art.isNotBlank()) {
+                RemoteImage(story.art, Modifier.fillMaxSize()) { Box(Modifier.fillMaxSize().background(coverTint(story))) }
+            } else if (animated) {
                 Canvas(Modifier.fillMaxSize()) {
                     val t = Clock.t
                     if (plate != null && img != null) {
