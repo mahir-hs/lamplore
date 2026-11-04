@@ -41,6 +41,13 @@ scene strip: one band per segment, colored by the background the Director chose.
 New books are not bundled. `data/RemoteContent.kt` downloads `catalog.json` (story text plus plate credits) from the GitHub release tagged `content`, and each picture the first time its story is shown; pictures are cached on the phone (Settings > Online library shows size and can clear them). Offline, the last catalog is used and covers fall back to the drawn motif. Build the catalog with the scripts kept on D: (`D:\DevData\downloads\workuild_content.py`, output in the gitignored `content/`), then publish it:
 `gh release create content content/* --title "Content" --notes "Online books"` (later: `gh release upload content content/* --clobber`). Rights and credits: `docs/licenses/IMAGES.md`.
 
+## Listen: free audiobooks and podcasts (streamed)
+`data/Listen.kt` + `ui/ListenScreen.kt` (tab "Listen"). Nothing is bundled or re-hosted; everything is looked up live and streamed.
+- **Audiobooks:** LibriVox official JSON API (`librivox.org/api/feed/audiobooks`, no key). Public-domain books read by volunteers. The API matches titles and author last names from the start of the word, so search is prefix-only.
+- **Podcasts:** Apple's free iTunes Search API (no key) finds shows; episodes come from the show's own RSS feed (`feedUrl`), like any podcast app.
+- Playback reuses `PlayerHub` (`Story.tracks` non-empty = stream): background service, lock screen, sleep timer, resume per story. Streams skip the Director, voices and background sound. Recently played streams are kept in `murmur_listen` prefs.
+- Not done yet: downloading for offline, podcast artwork, subscriptions.
+
 ## Covers
 Every cover is the scene the story lives in plus a drawing of its subject (`ui/Motifs.kt`: tortoise and hare, lion, lighthouse, night train...). Seed stories name their motif and scene; your own stories get one guessed from the title and text (`Motif.guess`), falling back to an open book.
 

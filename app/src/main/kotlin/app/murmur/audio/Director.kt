@@ -252,7 +252,7 @@ object Director {
                 lastStyle = style
                 pieces += sp.text to when (style) {
                     Style.CHILD -> Voicing(Role.CHILD, 1.22f, 0.03f)
-                    Style.DEEP -> Voicing(Role.DEEP, 0.86f, -0.04f)
+                    Style.DEEP -> Voicing(Role.DEEP, 0.94f, -0.03f) // 0.86 made the voice muffled and quiet; a small shift keeps it clear
                     Style.ELDER -> Voicing(speaker, 0.94f, -0.06f)
                     null -> Voicing(speaker, 1f, 0f)
                 }

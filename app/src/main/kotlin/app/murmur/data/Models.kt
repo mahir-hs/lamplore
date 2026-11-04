@@ -13,12 +13,18 @@ data class Story(
     val motif: Motif? = null,
     val scene: app.murmur.audio.AmbienceKind? = null,
     val plates: List<Plate> = emptyList(),
+    /** Recorded audio streamed from the internet (LibriVox books, podcast episodes). Empty = read aloud by Murmur. */
+    val tracks: List<Track> = emptyList(),
 ) {
+    val isStream: Boolean get() = tracks.isNotEmpty()
     val artMotif: Motif get() = motif ?: Motif.guess(title, body)
     val artScene: app.murmur.audio.AmbienceKind get() = scene ?: sceneForCategory(category)
     val words: Int get() = body.split(Regex("\\s+")).count { it.isNotBlank() }
-    val minutes: Int get() = maxOf(1, Math.round(words / 150f))
+    val minutes: Int get() = if (isStream) maxOf(1, tracks.sumOf { it.seconds } / 60) else maxOf(1, Math.round(words / 150f))
 }
+
+/** One recorded file: a book chapter or a podcast episode. `seconds` may be 0 when unknown. */
+data class Track(val title: String, val url: String, val seconds: Int)
 
 data class Reflection(val date: String, val text: String, val storyTitle: String?)
 
@@ -28,6 +34,8 @@ object Categories {
     const val CLASSICS = "Classic tales"
     const val CALM = "Sleep & calm"
     const val YOURS = "Yours"
+    const val AUDIOBOOKS = "Audiobooks"
+    const val PODCASTS = "Podcasts"
     val all = listOf(FABLES, CLASSICS, WISDOM, CALM, YOURS)
     val forUpload = listOf(FABLES, CLASSICS, WISDOM, CALM, YOURS)
 }

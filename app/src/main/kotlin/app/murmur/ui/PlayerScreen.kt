@@ -180,9 +180,9 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
             Box {
                 IconTap("More options", { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More options", tint = Ink.moth) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Ink.lampHigh) {
-                    MenuRow("Change voice") { menu = false; sheet = Sheet.VOICE }
-                    MenuRow("Tune this story") { menu = false; sheet = Sheet.TUNE }
-                    MenuRow("How it is being read") { menu = false; sheet = Sheet.DIRECTOR }
+                    if (!story.isStream) MenuRow("Change voice") { menu = false; sheet = Sheet.VOICE }
+                    MenuRow(if (story.isStream) "Speed and sleep timer" else "Tune this story") { menu = false; sheet = Sheet.TUNE }
+                    if (!story.isStream) MenuRow("How it is being read") { menu = false; sheet = Sheet.DIRECTOR }
                     if (story.plates.isNotEmpty()) MenuRow("Pictures from the book") { menu = false; sheet = Sheet.PICTURES }
                     MenuRow("Restart story") { menu = false; PlayerHub.restart() }
                     MenuRow("Report this story") {
@@ -247,13 +247,14 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 44.dp)
-                    .then(if (!waiting) Modifier.bounceClick("Show how this story is read") { sheet = Sheet.DIRECTOR } else Modifier),
+                    .then(if (!waiting && !story.isStream) Modifier.bounceClick("Show how this story is read") { sheet = Sheet.DIRECTOR } else Modifier),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     when {
                         status.startsWith("Preparing for smooth") -> "Getting the voice ready" + (percent?.let { ", $it%" } ?: "")
                         status.isNotBlank() -> status
+                        story.isStream -> story.category + (if (story.tracks.size > 1) ", part ${PlayerHub.part + 1} of ${story.tracks.size}" else "")
                         else -> nowLine()
                     },
                     style = MaterialTheme.typography.labelMedium,
@@ -305,7 +306,7 @@ fun PlayerScreen(onBack: () -> Unit, onDone: () -> Unit) {
     if (sheet != Sheet.NONE) {
         ModalBottomSheet(onDismissRequest = { sheet = Sheet.NONE }, containerColor = Ink.lamp) {
             when (sheet) {
-                Sheet.TUNE -> TuneSheet()
+                Sheet.TUNE -> if (story.isStream) StreamTuneSheet() else TuneSheet()
                 Sheet.DIRECTOR -> DirectorSheet()
                 Sheet.VOICE -> VoiceSheet { sheet = Sheet.NONE }
                 Sheet.PICTURES -> Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp)) { PlateGallery(story.plates) }
@@ -446,6 +447,27 @@ private fun DirectorCell(label: String, value: String, modifier: Modifier = Modi
         Crossfade(value, animationSpec = tween(900), label = label) { v ->
             Text(v, style = MaterialTheme.typography.titleSmall, color = Ink.moth, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+    }
+}
+
+/** Recorded audio: only speed and the sleep timer apply (no voices, scenes or background sound). */
+@Composable
+private fun StreamTuneSheet() {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 36.dp)) {
+        Text("Playback", style = MaterialTheme.typography.headlineSmall)
+        Heading("Speed")
+        FlowRow(horizontalArrangement = spacedRow, verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            listOf(0.8f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f).forEach { s ->
+                Pill("${s}×", PlayerHub.streamSpeed == s) { PlayerHub.changeStreamSpeed(s) }
+            }
+        }
+        Heading("Sleep timer")
+        FlowRow(horizontalArrangement = spacedRow, verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            listOf(0, 10, 20, 30, 60).forEach { m ->
+                Pill(if (m == 0) "Off" else "$m min", m == 0 && PlayerHub.sleepLeftMs == 0L) { PlayerHub.setSleep(m) }
+            }
+        }
+        if (PlayerHub.sleepLeftMs > 0) Quiet("Stops in ${formatMs(PlayerHub.sleepLeftMs)}", Modifier.padding(top = 8.dp))
     }
 }
 

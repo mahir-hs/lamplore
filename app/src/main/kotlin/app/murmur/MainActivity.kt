@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.List
@@ -76,6 +77,7 @@ import app.murmur.ui.DoneScreen
 import app.murmur.ui.HomeScreen
 import app.murmur.ui.Ink
 import app.murmur.ui.LibraryScreen
+import app.murmur.ui.ListenScreen
 import app.murmur.ui.MurmurTheme
 import app.murmur.ui.PauseScreen
 import app.murmur.ui.RunClock
@@ -83,7 +85,7 @@ import app.murmur.ui.motionReduced
 import app.murmur.ui.PlayerScreen
 import app.murmur.ui.SettingsScreen
 
-enum class Screen { HOME, LIBRARY, ADD, SETTINGS, ABOUT, PLAYER, PAUSE, DONE }
+enum class Screen { HOME, LIBRARY, LISTEN, ADD, SETTINGS, ABOUT, PLAYER, PAUSE, DONE }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -137,7 +139,7 @@ private fun Root() {
         showPlayer()
     }
 
-    val tabs = setOf(Screen.HOME, Screen.LIBRARY, Screen.SETTINGS)
+    val tabs = setOf(Screen.HOME, Screen.LIBRARY, Screen.LISTEN, Screen.SETTINGS)
     BackHandler(enabled = screen != Screen.HOME) {
         screen = when (screen) {
             Screen.PLAYER -> origin
@@ -158,6 +160,7 @@ private fun Root() {
                     NavigationBar(containerColor = Ink.lamp, tonalElevation = 0.dp) {
                         Tab(Screen.HOME, "Tonight", Icons.Outlined.Home, screen) { screen = it }
                         Tab(Screen.LIBRARY, "Library", Icons.Outlined.List, screen) { screen = it }
+                        Tab(Screen.LISTEN, "Listen", Icons.Filled.PlayArrow, screen) { screen = it }
                         Tab(Screen.SETTINGS, "You", Icons.Outlined.Person, screen) { screen = it }
                     }
                 }
@@ -182,6 +185,7 @@ private fun Root() {
                 when (target) {
                     Screen.HOME -> HomeScreen(::open, { screen = Screen.PAUSE }, { screen = Screen.DONE })
                     Screen.LIBRARY -> LibraryScreen(::open) { screen = Screen.ADD }
+                    Screen.LISTEN -> ListenScreen(::open)
                     Screen.ADD -> AddStoryScreen(onSaved = ::open, onBack = { screen = Screen.LIBRARY })
                     Screen.SETTINGS -> SettingsScreen(onAbout = { screen = Screen.ABOUT })
                     Screen.ABOUT -> AboutScreen(onBack = { screen = Screen.SETTINGS })
@@ -239,6 +243,13 @@ private fun MiniPlayer(onClick: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     GlyphIcon(if (PlayerHub.playing) Glyph.PAUSE else Glyph.PLAY, Ink.onEmber, 24.dp, if (PlayerHub.playing) "Pause" else "Play")
+                }
+                // dismiss: stops playback and hides the bar (progress is saved first)
+                Box(
+                    Modifier.size(48.dp).bounceClick("Close player") { PlayerHub.stopAll() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.Close, contentDescription = "Close player", tint = Ink.dusk)
                 }
             }
         }

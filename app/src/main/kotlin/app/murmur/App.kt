@@ -101,6 +101,7 @@ object App {
 
         stories.addAll(SeedStories.all)
         stories.addAll(loadUserStories())
+        app.murmur.data.Listen.init()
         app.murmur.data.RemoteContent.refresh()
         app.murmur.ai.AiModels.init(context)
 

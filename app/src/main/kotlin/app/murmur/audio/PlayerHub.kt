@@ -21,6 +21,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import app.murmur.App
+import app.murmur.data.Listen
 import app.murmur.data.Story
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -63,6 +64,10 @@ object PlayerHub {
     var roleVoices by mutableStateOf<Map<Role, VoiceInfo>>(emptyMap())
 
     var previewStatus by mutableStateOf("")
+
+    /** True while a recorded stream (audiobook or podcast) is playing instead of Murmur's own voice. */
+    var streaming by mutableStateOf(false)
+        private set
 
     private var segments: List<Segment> = emptyList()
     private var voiceFor: Map<Role, String> = emptyMap()
@@ -121,7 +126,13 @@ object PlayerHub {
     }
 
     private fun build(): ExoPlayer {
+        val http = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setAllowCrossProtocolRedirects(true)
+            .setUserAgent("Murmur/0.4")
         val p = ExoPlayer.Builder(app)
+            .setMediaSourceFactory(
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(androidx.media3.datasource.DefaultDataSource.Factory(app, http)),
+            )
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -137,6 +148,10 @@ object PlayerHub {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 playing = isPlaying
                 updateAmbience()
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                status = if (streaming) "Could not load this audio. Check your connection and try again." else status
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -173,10 +188,11 @@ object PlayerHub {
     /** Jump anywhere in the story. Parts not generated yet can't be reached; we go to the last ready part. */
     fun seekToFraction(f: Float) {
         val p = exo ?: return
-        if (segments.isEmpty() || p.mediaItemCount == 0) return
+        if ((segments.isEmpty() && !streaming) || p.mediaItemCount == 0) return
         var target = (f.coerceIn(0f, 1f) * totalSeconds)
         var k = 0
-        while (k < segments.size - 1 && target > estSec[k]) { target -= estSec[k]; k++ }
+        val n = if (streaming) estSec.size else segments.size
+        while (k < n - 1 && target > estSec[k]) { target -= estSec[k]; k++ }
         val idx = (k - base).coerceIn(0, p.mediaItemCount - 1)
         val offset = if (k - base == idx) (target * 1000).toLong() else 0L
         p.seekTo(idx, offset)
@@ -192,6 +208,14 @@ object PlayerHub {
     fun applyParams() {
         val seg = currentSegment()
         nowRole = seg?.role ?: Role.NARRATOR
+        if (streaming) {
+            nowSpeed = streamSpeed
+            nowAmbience = AmbienceKind.NONE
+            nowMusic = MusicMood.NONE
+            exo?.playbackParameters = PlaybackParameters(streamSpeed, 1f)
+            updateAmbience()
+            return
+        }
         nowSpeed = if (App.autoSpeed && seg != null) seg.speed else App.speed
         nowAmbience = if (App.autoSound && seg != null) seg.ambience else App.ambience
         nowMusic = when {
@@ -204,6 +228,50 @@ object PlayerHub {
         val stretch = if (seg != null && baked(voiceFor[seg.role] ?: "")) 1f else nowSpeed
         exo?.playbackParameters = PlaybackParameters(stretch, (App.pitch * (seg?.pitch ?: 1f)).coerceIn(0.5f, 2f))
         updateAmbience()
+    }
+
+    /** Playback speed for recorded audio (podcasts are often listened to faster). */
+    var streamSpeed by mutableFloatStateOf(1f)
+
+    fun changeStreamSpeed(v: Float) {
+        streamSpeed = v
+        applyParams()
+    }
+
+    private fun playStream(story: Story, fromStart: Boolean) {
+        val p = player
+        stopInternal()
+        ensureService()
+        streaming = true
+        current = story
+        finished = false
+        fraction = 0f
+        plan = null
+        segments = emptyList()
+        parts = story.tracks.size
+        estSec = DoubleArray(story.tracks.size) { story.tracks[it].seconds.toDouble() }
+        positionSeconds = 0f
+        if (fromStart) App.clearProgress(story.id)
+        val saved = if (fromStart) null else App.savedProgress(story.id)
+        base = 0
+        val start = (saved?.first ?: 0).coerceIn(0, story.tracks.size - 1)
+        part = start
+        p.clearMediaItems()
+        story.tracks.forEachIndexed { i, t ->
+            p.addMediaItem(
+                MediaItem.Builder()
+                    .setMediaId("${story.id}#$i")
+                    .setUri(t.url)
+                    .setMediaMetadata(MediaMetadata.Builder().setTitle(if (story.tracks.size > 1) "${story.title}: ${t.title}" else story.title).setArtist(story.author).setAlbumTitle(story.category).build())
+                    .build(),
+            )
+        }
+        applyParams()
+        p.prepare()
+        p.seekTo(start, saved?.second ?: 0L)
+        p.playWhenReady = true
+        status = "Loading..."
+        Listen.remember(story)
     }
 
     fun updateAmbience() {
@@ -253,6 +321,8 @@ object PlayerHub {
             p.play()
             return
         }
+        if (story.isStream) { playStream(story, fromStart); return }
+        streaming = false
         stopInternal()
         ensureService()
         current = story
@@ -458,6 +528,7 @@ object PlayerHub {
     fun stopAll() {
         stopInternal()
         current = null
+        streaming = false
         plan = null
         segments = emptyList()
         status = ""
@@ -478,6 +549,10 @@ object PlayerHub {
                         applyParams()
                     }
                     part = base + idx
+                    if (streaming) {
+                        if (p.duration > 0 && idx < estSec.size) estSec[idx] = p.duration / 1000.0
+                        if (p.isPlaying && status == "Loading...") status = ""
+                    }
                     val before = (0 until part.coerceAtMost(estSec.size)).sumOf { estSec[it] }
                     val pos = before + p.currentPosition / 1000.0
                     positionSeconds = pos.toFloat()
