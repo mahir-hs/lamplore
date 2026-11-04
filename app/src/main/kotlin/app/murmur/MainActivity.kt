@@ -67,6 +67,13 @@ import androidx.core.content.ContextCompat
 import app.murmur.audio.PlayerHub
 import app.murmur.data.Story
 import app.murmur.ui.AboutScreen
+import app.murmur.ui.FloatingTabBar
+import app.murmur.ui.HistoryScreen
+import app.murmur.ui.ListenKind
+import app.murmur.ui.edgeSwipeToChangeTab
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Star
 import app.murmur.ui.AddStoryScreen
 import app.murmur.ui.WelcomeScreen
 import app.murmur.ui.Cover
@@ -85,7 +92,7 @@ import app.murmur.ui.motionReduced
 import app.murmur.ui.PlayerScreen
 import app.murmur.ui.SettingsScreen
 
-enum class Screen { HOME, LIBRARY, LISTEN, ADD, SETTINGS, ABOUT, PLAYER, PAUSE, DONE }
+enum class Screen { HOME, AUDIOBOOKS, PODCASTS, UPDATES, DOWNLOADS, MYLIST, LIBRARY, HISTORY, SETTINGS, ADD, ABOUT, PLAYER, PAUSE, DONE }
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -149,7 +156,8 @@ private fun Root() {
         showPlayer()
     }
 
-    val tabs = setOf(Screen.HOME, Screen.LIBRARY, Screen.LISTEN, Screen.SETTINGS)
+    val tabList = listOf(Screen.HOME, Screen.AUDIOBOOKS, Screen.PODCASTS, Screen.UPDATES, Screen.DOWNLOADS, Screen.MYLIST, Screen.LIBRARY, Screen.HISTORY, Screen.SETTINGS)
+    val tabs = tabList.toSet()
     BackHandler(enabled = screen != Screen.HOME) {
         screen = when (screen) {
             Screen.PLAYER -> origin
@@ -167,17 +175,21 @@ private fun Root() {
             Column {
                 if (PlayerHub.current != null && screen != Screen.PLAYER) MiniPlayer { showPlayer() }
                 if (screen in tabs) {
-                    NavigationBar(containerColor = Ink.lamp, tonalElevation = 0.dp) {
-                        Tab(Screen.HOME, "Tonight", Icons.Outlined.Home, screen) { screen = it }
-                        Tab(Screen.LIBRARY, "Library", Icons.Outlined.List, screen) { screen = it }
-                        Tab(Screen.LISTEN, "Listen", Icons.Filled.PlayArrow, screen) { screen = it }
-                        Tab(Screen.SETTINGS, "You", Icons.Outlined.Person, screen) { screen = it }
-                    }
+                    FloatingTabBar(
+                        tabs = tabList, selected = screen, label = { it.label() }, onClick = { screen = it },
+                        badge = { if (it == Screen.UPDATES) app.murmur.data.Subs.unread() else 0 },
+                        icon = { t, tint -> TabIcon(t, tint) },
+                    )
                 }
             }
         },
     ) { pad ->
-        Box(Modifier.padding(pad).fillMaxSize()) {
+        Box(
+            Modifier.padding(pad).fillMaxSize().edgeSwipeToChangeTab { d ->
+                val i = tabList.indexOf(screen)
+                if (i >= 0) screen = tabList[(i + d).coerceIn(0, tabList.size - 1)]
+            },
+        ) {
             RunClock(active = screen == Screen.PLAYER)
             AnimatedContent(
                 targetState = screen,
@@ -193,9 +205,14 @@ private fun Root() {
                 label = "screen",
             ) { target ->
                 when (target) {
-                    Screen.HOME -> HomeScreen(::open, { screen = Screen.PAUSE }, { screen = Screen.DONE })
+                    Screen.HOME -> HomeScreen(::open, { screen = Screen.PAUSE }, { screen = Screen.DONE }, onBrowse = { screen = Screen.AUDIOBOOKS })
                     Screen.LIBRARY -> LibraryScreen(::open) { screen = Screen.ADD }
-                    Screen.LISTEN -> ListenScreen(::open)
+                    Screen.AUDIOBOOKS -> ListenScreen(ListenKind.BOOKS, ::open)
+                    Screen.PODCASTS -> ListenScreen(ListenKind.PODCASTS, ::open)
+                    Screen.UPDATES -> ListenScreen(ListenKind.UPDATES, ::open)
+                    Screen.DOWNLOADS -> ListenScreen(ListenKind.DOWNLOADS, ::open)
+                    Screen.MYLIST -> ListenScreen(ListenKind.MYLIST, ::open)
+                    Screen.HISTORY -> HistoryScreen(::open)
                     Screen.ADD -> AddStoryScreen(onSaved = ::open, onBack = { screen = Screen.LIBRARY })
                     Screen.SETTINGS -> SettingsScreen(onAbout = { screen = Screen.ABOUT }, onPlay = ::open, onShowPlayer = { showPlayer() })
                     Screen.ABOUT -> AboutScreen(onBack = { screen = Screen.SETTINGS })
@@ -229,6 +246,35 @@ private fun androidx.compose.foundation.layout.RowScope.Tab(
             unselectedTextColor = Ink.dusk,
         ),
     )
+}
+
+private fun Screen.label() = when (this) {
+    Screen.HOME -> "Home"
+    Screen.AUDIOBOOKS -> "Audiobooks"
+    Screen.PODCASTS -> "Podcasts"
+    Screen.UPDATES -> "Updates"
+    Screen.DOWNLOADS -> "Downloads"
+    Screen.MYLIST -> "My list"
+    Screen.LIBRARY -> "Stories"
+    Screen.HISTORY -> "History"
+    Screen.SETTINGS -> "You"
+    else -> name
+}
+
+@Composable
+private fun TabIcon(t: Screen, tint: Color) {
+    val d = t.label()
+    when (t) {
+        Screen.HOME -> Icon(Icons.Outlined.Home, d, tint = tint)
+        Screen.AUDIOBOOKS -> GlyphIcon(Glyph.BOOK, tint, 24.dp, d)
+        Screen.PODCASTS -> GlyphIcon(Glyph.PODCAST, tint, 24.dp, d)
+        Screen.UPDATES -> Icon(Icons.Outlined.Notifications, d, tint = tint)
+        Screen.DOWNLOADS -> GlyphIcon(Glyph.DOWNLOAD, tint, 24.dp, d)
+        Screen.MYLIST -> Icon(Icons.Outlined.Star, d, tint = tint)
+        Screen.LIBRARY -> Icon(Icons.Outlined.List, d, tint = tint)
+        Screen.HISTORY -> Icon(Icons.Outlined.DateRange, d, tint = tint)
+        else -> Icon(Icons.Outlined.Person, d, tint = tint)
+    }
 }
 
 @Composable

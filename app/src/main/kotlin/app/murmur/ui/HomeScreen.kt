@@ -34,7 +34,7 @@ import java.time.LocalTime
  * Nothing here moves; the living scenes belong to the player.
  */
 @Composable
-fun HomeScreen(onOpen: (Story) -> Unit, onPause: () -> Unit, onDone: () -> Unit) {
+fun HomeScreen(onOpen: (Story) -> Unit, onPause: () -> Unit, onDone: () -> Unit, onBrowse: () -> Unit = {}) {
     var mood by remember { mutableStateOf<String?>(null) }
     val streak = App.streak()
     val visible = App.visibleStories
@@ -83,6 +83,11 @@ fun HomeScreen(onOpen: (Story) -> Unit, onPause: () -> Unit, onDone: () -> Unit)
                 TextButton(onClick = onPause) { Text("Pause for a minute", color = Ink.ember) }
                 TextButton(onClick = onDone) { Text("Finish tonight", color = Ink.dusk) }
             }
+        }
+
+        item {
+            Heading("Discover", Modifier.padding(horizontal = 20.dp))
+            DiscoverFeed({ i, d -> ListenNav.item = i; ListenNav.seeAll = d; onBrowse() }, onOpen)
         }
     }
 }

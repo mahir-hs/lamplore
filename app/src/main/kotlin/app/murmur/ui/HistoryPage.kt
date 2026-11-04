@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -45,6 +48,16 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/** History as its own tab. */
+@Composable
+fun HistoryScreen(onPlay: (Story) -> Unit) {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+        Text("History", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
+        HistoryPage(onPlay)
+        Spacer(Modifier.height(28.dp))
+    }
+}
 
 /** Find the story behind a history entry: a built-in story, something played or downloaded, or a book to fetch again. */
 private suspend fun resolve(h: HistoryItem): Story? {

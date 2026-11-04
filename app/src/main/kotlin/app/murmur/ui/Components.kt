@@ -204,7 +204,7 @@ fun Modifier.bounceClick(label: String? = null, onClick: () -> Unit): Modifier =
     )
 }
 
-enum class Glyph { PLAY, PAUSE, PREV, NEXT, BACK15, FWD15, MOON, DOWNLOAD, CHECK }
+enum class Glyph { PLAY, PAUSE, PREV, NEXT, BACK15, FWD15, MOON, DOWNLOAD, CHECK, BOOK, PODCAST }
 
 /** Transport icons drawn by hand (the icon pack in use has no pause or skip). */
 @Composable
@@ -240,6 +240,20 @@ fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 28.dp, description: String? 
                     drawLine(tint, Offset(w * 0.3f, h * 0.44f), Offset(w * 0.5f, h * 0.64f), sw, StrokeCap.Round)
                     drawLine(tint, Offset(w * 0.7f, h * 0.44f), Offset(w * 0.5f, h * 0.64f), sw, StrokeCap.Round)
                     drawLine(tint, Offset(w * 0.2f, h * 0.84f), Offset(w * 0.8f, h * 0.84f), sw, StrokeCap.Round)
+                }
+                Glyph.BOOK -> {
+                    val st = Stroke(w * 0.085f)
+                    val left = Path().apply { moveTo(w * 0.5f, h * 0.26f); lineTo(w * 0.12f, h * 0.18f); lineTo(w * 0.12f, h * 0.78f); lineTo(w * 0.5f, h * 0.86f); close() }
+                    val right = Path().apply { moveTo(w * 0.5f, h * 0.26f); lineTo(w * 0.88f, h * 0.18f); lineTo(w * 0.88f, h * 0.78f); lineTo(w * 0.5f, h * 0.86f); close() }
+                    drawPath(left, tint, style = st)
+                    drawPath(right, tint, style = st)
+                }
+                Glyph.PODCAST -> {
+                    val sw = w * 0.085f
+                    drawCircle(tint, w * 0.11f, Offset(w * 0.5f, h * 0.46f))
+                    drawArc(tint, -145f, 250f, false, Offset(w * 0.24f, h * 0.2f), Size(w * 0.52f, h * 0.52f), style = Stroke(sw, cap = StrokeCap.Round))
+                    drawArc(tint, -145f, 250f, false, Offset(w * 0.08f, h * 0.04f), Size(w * 0.84f, h * 0.84f), style = Stroke(sw, cap = StrokeCap.Round))
+                    drawLine(tint, Offset(w * 0.5f, h * 0.6f), Offset(w * 0.5f, h * 0.9f), sw, StrokeCap.Round)
                 }
                 Glyph.CHECK -> {
                     val sw = w * 0.11f

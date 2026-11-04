@@ -52,7 +52,7 @@ fun LibraryScreen(onOpen: (Story) -> Unit, onAdd: () -> Unit) {
     LazyColumn {
         item {
             Column(Modifier.padding(horizontal = 22.dp)) {
-                Text("Library", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
+                Text("Stories", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },

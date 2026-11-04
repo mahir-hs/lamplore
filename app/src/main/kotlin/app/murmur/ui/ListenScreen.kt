@@ -61,10 +61,10 @@ import app.murmur.data.Listen
 import app.murmur.data.Story
 import kotlinx.coroutines.delay
 
-private enum class Kind { BOOKS, PODCASTS, UPDATES, MYLIST, DOWNLOADS }
+enum class ListenKind { BOOKS, PODCASTS, UPDATES, MYLIST, DOWNLOADS }
 
 /** A shelf: a short live preview for the row, and pages for the "See all" grid. */
-private class ShelfDef(val title: String, val preview: suspend () -> List<Item>, val page: suspend (Int) -> List<Item>)
+class ShelfDef(val title: String, val preview: suspend () -> List<Item>, val page: suspend (Int) -> List<Item>)
 
 private const val L = Listen.LIBRIVOX
 private fun archiveShelf(title: String, query: String, sort: String = "downloads desc", unseenOnly: Boolean = false) =
@@ -113,8 +113,32 @@ private val showShelves = listOf(
     chart("Comedy", 1303),
 )
 
+/** Home asks the Audiobooks page to open a title or a whole shelf. */
+object ListenNav {
+    var item: Item? = null
+    var seeAll: ShelfDef? = null
+}
+
+/**
+ * The Discover feed on Home (aniyomi-style rows): carry on, what next, and the shelves for tonight, new
+ * releases and trending. [onBrowse] opens a title or a whole shelf on the Audiobooks page.
+ */
+@Composable
+fun DiscoverFeed(onBrowse: (Item?, ShelfDef?) -> Unit, onPlay: (Story) -> Unit) {
+    val going = Listen.recent.filter { App.progressFraction(it.id) > 0f && it.id !in App.completed }.take(3)
+    Column {
+        if (going.isNotEmpty()) {
+            Heading("Continue listening", Modifier.padding(horizontal = 20.dp))
+            going.forEach { RecentRow(it) { onPlay(it) } }
+        }
+        WhatNext(onOpenItem = { onBrowse(it, null) }, onPlay = onPlay)
+        discoverShelves().forEach { def -> ShelfRow(def, onAll = { onBrowse(null, def) }) { onBrowse(it, null) } }
+        Spacer(Modifier.height(12.dp))
+    }
+}
+
 /** The Discover feed: what is new and trending, and picks from the hour and from what you have been listening to. */
-private fun discoverShelves(): List<ShelfDef> {
+fun discoverShelves(): List<ShelfDef> {
     val hour = java.time.LocalTime.now().hour
     val tag = app.murmur.data.Activity.byTag(365).firstOrNull()?.first
     val out = mutableListOf<ShelfDef>()
@@ -162,13 +186,16 @@ fun SimilarRow(item: Item, tags: List<String>, onOpen: (Item) -> Unit) {
  * podcasts. Browse by shelf (tap a shelf's name for everything in it), search, or open a title.
  */
 @Composable
-fun ListenScreen(onOpen: (Story) -> Unit) {
-    var kind by remember { mutableStateOf(Kind.BOOKS) }
+fun ListenScreen(kind: ListenKind, onOpen: (Story) -> Unit) {
     var query by remember { mutableStateOf("") }
     var detail by remember { mutableStateOf<Item?>(null) }
     var seeAll by remember { mutableStateOf<ShelfDef?>(null) }
     val myState = remember { MyListState() }
     var dlByAuthor by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        ListenNav.item?.let { detail = it; ListenNav.item = null }
+        ListenNav.seeAll?.let { seeAll = it; ListenNav.seeAll = null }
+    }
     BackHandler(enabled = detail != null || seeAll != null) { if (detail != null) detail = null else seeAll = null }
 
     val d = detail
@@ -201,17 +228,21 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
     LazyColumn {
         item {
             Column(Modifier.padding(horizontal = 22.dp)) {
-                Text("Listen", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
-                Quiet("Free audiobooks and podcasts. Stream them, or save them for offline.", Modifier.padding(top = 4.dp))
-                if (App.incognito) Text("Incognito: nothing you listen to is recorded.", style = MaterialTheme.typography.labelMedium, color = Ink.ember, modifier = Modifier.padding(top = 4.dp))
-                FlowRow(horizontalArrangement = spacedRow, modifier = Modifier.padding(top = 10.dp)) {
-                    Pill("Audiobooks", kind == Kind.BOOKS) { kind = Kind.BOOKS }
-                    Pill("Podcasts", kind == Kind.PODCASTS) { kind = Kind.PODCASTS }
-                    Pill(if (app.murmur.data.Subs.unread() > 0) "Updates (${app.murmur.data.Subs.unread()})" else "Updates", kind == Kind.UPDATES) { kind = Kind.UPDATES }
-                    Pill("My list", kind == Kind.MYLIST) { kind = Kind.MYLIST }
-                    Pill("Downloads", kind == Kind.DOWNLOADS) { kind = Kind.DOWNLOADS }
+                val title = when (kind) {
+                    ListenKind.BOOKS -> "Audiobooks"
+                    ListenKind.PODCASTS -> "Podcasts"
+                    ListenKind.UPDATES -> "Updates"
+                    ListenKind.MYLIST -> "My list"
+                    ListenKind.DOWNLOADS -> "Downloads"
                 }
-                if (kind == Kind.BOOKS || kind == Kind.PODCASTS) OutlinedTextField(
+                Text(title, style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 28.dp))
+                when (kind) {
+                    ListenKind.BOOKS -> Quiet("Free audiobooks from LibriVox, plus old-time radio.", Modifier.padding(top = 4.dp))
+                    ListenKind.PODCASTS -> Quiet("Free podcasts. Browse, search and follow.", Modifier.padding(top = 4.dp))
+                    else -> {}
+                }
+                if (App.incognito) Text("Incognito: nothing you listen to is recorded.", style = MaterialTheme.typography.labelMedium, color = Ink.ember, modifier = Modifier.padding(top = 4.dp))
+                if (kind == ListenKind.BOOKS || kind == ListenKind.PODCASTS) OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
                     placeholder = { Text("Search books, shows and your list") },
@@ -223,11 +254,11 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
                 )
             }
         }
-        if (kind == Kind.UPDATES) {
+        if (kind == ListenKind.UPDATES) {
             updatesContent(onOpenItem = { detail = it }, onPlay = onOpen)
-        } else if (kind == Kind.MYLIST) {
+        } else if (kind == ListenKind.MYLIST) {
             myListContent(myState, onOpenItem = { detail = it }, onPlay = onOpen)
-        } else if (kind == Kind.DOWNLOADS) {
+        } else if (kind == ListenKind.DOWNLOADS) {
             downloadsContent(dlByAuthor, { dlByAuthor = it }, onOpenItem = { detail = it }, onPlay = onOpen)
         } else if (q.length >= 2) {
             val r = results
@@ -249,7 +280,7 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
                 }
             }
         } else {
-            val mine = Listen.recent.filter { (kind == Kind.PODCASTS) == (it.category == Categories.PODCASTS) }.take(5)
+            val mine = Listen.recent.filter { (kind == ListenKind.PODCASTS) == (it.category == Categories.PODCASTS) }.take(5)
             if (mine.isNotEmpty()) {
                 item { Heading("Continue listening", Modifier.padding(horizontal = 20.dp)) }
                 items(mine, key = { "r_" + it.id }) { s -> RecentRow(s) { onOpen(s) } }
@@ -278,8 +309,8 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
                     }
                 }
             }
-            if (kind == Kind.BOOKS) item { WhatNext(onOpenItem = { detail = it }, onPlay = onOpen) }
-            val shelves = if (kind == Kind.BOOKS) discoverShelves() + bookShelves else showShelves
+            if (kind == ListenKind.BOOKS) item { WhatNext(onOpenItem = { detail = it }, onPlay = onOpen) }
+            val shelves = if (kind == ListenKind.BOOKS) discoverShelves() + bookShelves else showShelves
             items(shelves, key = { kind.name + it.title }) { def -> ShelfRow(def, onAll = { seeAll = def }) { detail = it } }
         }
         item { Spacer(Modifier.height(28.dp)) }
@@ -289,7 +320,7 @@ fun ListenScreen(onOpen: (Story) -> Unit) {
 // ---- shelves and "see all" ---------------------------------------------------------------------------
 
 @Composable
-private fun ShelfRow(def: ShelfDef, onAll: () -> Unit, onOpen: (Item) -> Unit) {
+fun ShelfRow(def: ShelfDef, onAll: () -> Unit, onOpen: (Item) -> Unit) {
     val items by produceState<List<Item>?>(null, def) { value = def.preview() }
     val list = items
     Row(
