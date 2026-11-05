@@ -71,6 +71,7 @@ import app.lamplore.ui.FloatingTabBar
 import app.lamplore.ui.HistoryScreen
 import app.lamplore.ui.ListenKind
 import app.lamplore.ui.edgeSwipeToChangeTab
+import androidx.compose.material.icons.outlined.Create
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Star
@@ -83,7 +84,9 @@ import app.lamplore.ui.bounceClick
 import app.lamplore.ui.DoneScreen
 import app.lamplore.ui.HomeScreen
 import app.lamplore.ui.Ink
+import app.lamplore.ui.CreateScreen
 import app.lamplore.ui.LibraryScreen
+import app.lamplore.ui.MixerScreen
 import app.lamplore.ui.ListenScreen
 import app.lamplore.ui.LamploreTheme
 import app.lamplore.ui.PauseScreen
@@ -92,7 +95,7 @@ import app.lamplore.ui.motionReduced
 import app.lamplore.ui.PlayerScreen
 import app.lamplore.ui.SettingsScreen
 
-enum class Screen { HOME, AUDIOBOOKS, PODCASTS, UPDATES, DOWNLOADS, MYLIST, LIBRARY, HISTORY, SETTINGS, ADD, ABOUT, PLAYER, PAUSE, DONE }
+enum class Screen { HOME, AUDIOBOOKS, PODCASTS, UPDATES, DOWNLOADS, MYLIST, LIBRARY, MIXER, CREATE, HISTORY, SETTINGS, ADD, ABOUT, PLAYER, PAUSE, DONE }
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -156,7 +159,7 @@ private fun Root() {
         showPlayer()
     }
 
-    val tabList = listOf(Screen.HOME, Screen.AUDIOBOOKS, Screen.PODCASTS, Screen.UPDATES, Screen.DOWNLOADS, Screen.MYLIST, Screen.LIBRARY, Screen.HISTORY, Screen.SETTINGS)
+    val tabList = listOf(Screen.HOME, Screen.AUDIOBOOKS, Screen.PODCASTS, Screen.UPDATES, Screen.DOWNLOADS, Screen.MYLIST, Screen.LIBRARY, Screen.MIXER, Screen.CREATE, Screen.HISTORY, Screen.SETTINGS)
     val tabs = tabList.toSet()
     BackHandler(enabled = screen != Screen.HOME) {
         screen = when (screen) {
@@ -212,6 +215,8 @@ private fun Root() {
                     Screen.UPDATES -> ListenScreen(ListenKind.UPDATES, ::open)
                     Screen.DOWNLOADS -> ListenScreen(ListenKind.DOWNLOADS, ::open)
                     Screen.MYLIST -> ListenScreen(ListenKind.MYLIST, ::open)
+                    Screen.MIXER -> MixerScreen()
+                    Screen.CREATE -> CreateScreen(::open)
                     Screen.HISTORY -> HistoryScreen(::open)
                     Screen.ADD -> AddStoryScreen(onSaved = ::open, onBack = { screen = Screen.LIBRARY })
                     Screen.SETTINGS -> SettingsScreen(onAbout = { screen = Screen.ABOUT }, onPlay = ::open, onShowPlayer = { showPlayer() })
@@ -256,6 +261,8 @@ private fun Screen.label() = when (this) {
     Screen.DOWNLOADS -> "Downloads"
     Screen.MYLIST -> "My list"
     Screen.LIBRARY -> "Stories"
+    Screen.MIXER -> "Sounds"
+    Screen.CREATE -> "Create"
     Screen.HISTORY -> "History"
     Screen.SETTINGS -> "You"
     else -> name
@@ -272,6 +279,8 @@ private fun TabIcon(t: Screen, tint: Color) {
         Screen.DOWNLOADS -> GlyphIcon(Glyph.DOWNLOAD, tint, 24.dp, d)
         Screen.MYLIST -> Icon(Icons.Outlined.Star, d, tint = tint)
         Screen.LIBRARY -> Icon(Icons.Outlined.List, d, tint = tint)
+        Screen.MIXER -> GlyphIcon(Glyph.WAVES, tint, 24.dp, d)
+        Screen.CREATE -> Icon(Icons.Outlined.Create, d, tint = tint)
         Screen.HISTORY -> Icon(Icons.Outlined.DateRange, d, tint = tint)
         else -> Icon(Icons.Outlined.Person, d, tint = tint)
     }

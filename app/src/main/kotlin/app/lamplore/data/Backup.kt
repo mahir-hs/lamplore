@@ -16,7 +16,7 @@ import java.util.Locale
  */
 object Backup {
     /** The SharedPreferences files that make up the backup. */
-    private val files = listOf("murmur", "murmur_listen", "murmur_activity", "murmur_history", "murmur_downloads", "murmur_subs", "murmur_extra")
+    private val files = listOf("murmur", "murmur_listen", "murmur_activity", "murmur_history", "murmur_downloads", "murmur_subs", "murmur_extra", "lamplore_mixer", "lamplore_writer")
 
     private const val VERSION = 1
 

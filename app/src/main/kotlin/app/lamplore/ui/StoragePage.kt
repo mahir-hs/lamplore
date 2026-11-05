@@ -138,7 +138,7 @@ fun ColumnScope.DiagnosticsPage() {
     var copied by remember { mutableStateOf("") }
     val stat = runCatching { StatFs(ctx.filesDir.path).let { it.availableBytes to it.totalBytes } }.getOrNull()
     val info = buildString {
-        appendLine("Lamplore 0.4")
+        appendLine("Lamplore 0.5")
         appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.SUPPORTED_ABIS.firstOrNull() ?: "?"}")
         if (stat != null) appendLine("Free space: ${mbText(stat.first)} of ${mbText(stat.second)}")

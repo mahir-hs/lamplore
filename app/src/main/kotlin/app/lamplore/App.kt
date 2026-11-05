@@ -120,6 +120,7 @@ object App {
         app.lamplore.data.Subs.schedule(context)
         app.lamplore.data.Backup.autoIfDue(context)
         app.lamplore.data.Downloads.init()
+        app.lamplore.audio.Mixer.init()
         app.lamplore.data.RemoteContent.refresh()
         app.lamplore.ai.AiModels.init(context)
 

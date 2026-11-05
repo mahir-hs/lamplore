@@ -83,6 +83,7 @@ private fun searchShelf(title: String, term: String) =
 /** Audiobook shelves: each is a live query, most popular first. */
 private val bookShelves = listOf(
     archiveShelf("Most popular", L),
+    archiveShelf("Bedtime, read by people", "$L AND (subject:bedtime OR subject:lullabies OR subject:\"nursery rhymes\" OR subject:\"fairy tales\" OR subject:\"sleep\")"),
     books("For children", "children"),
     books("Fairy tales", "fairy tales"),
     books("Fables", "fables"),

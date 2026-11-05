@@ -198,7 +198,7 @@ object PlayerHub {
     private fun build(): ExoPlayer {
         val http = androidx.media3.datasource.DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
-            .setUserAgent("Lamplore/0.4")
+            .setUserAgent("Lamplore/0.5")
         val p = ExoPlayer.Builder(app)
             .setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(androidx.media3.datasource.DefaultDataSource.Factory(app, http)),

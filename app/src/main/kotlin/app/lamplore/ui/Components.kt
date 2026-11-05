@@ -204,7 +204,7 @@ fun Modifier.bounceClick(label: String? = null, onClick: () -> Unit): Modifier =
     )
 }
 
-enum class Glyph { PLAY, PAUSE, PREV, NEXT, BACK15, FWD15, MOON, DOWNLOAD, CHECK, BOOK, PODCAST }
+enum class Glyph { PLAY, PAUSE, PREV, NEXT, BACK15, FWD15, MOON, DOWNLOAD, CHECK, BOOK, PODCAST, WAVES }
 
 /** Transport icons drawn by hand (the icon pack in use has no pause or skip). */
 @Composable
@@ -254,6 +254,12 @@ fun GlyphIcon(glyph: Glyph, tint: Color, size: Dp = 28.dp, description: String? 
                     drawArc(tint, -145f, 250f, false, Offset(w * 0.24f, h * 0.2f), Size(w * 0.52f, h * 0.52f), style = Stroke(sw, cap = StrokeCap.Round))
                     drawArc(tint, -145f, 250f, false, Offset(w * 0.08f, h * 0.04f), Size(w * 0.84f, h * 0.84f), style = Stroke(sw, cap = StrokeCap.Round))
                     drawLine(tint, Offset(w * 0.5f, h * 0.6f), Offset(w * 0.5f, h * 0.9f), sw, StrokeCap.Round)
+                }
+                Glyph.WAVES -> {
+                    val sw = w * 0.1f
+                    listOf(0.16f to 0.22f, 0.33f to 0.5f, 0.5f to 0.78f, 0.67f to 0.4f, 0.84f to 0.24f).forEach { (x, half) ->
+                        drawLine(tint, Offset(w * x, h * (0.5f - half / 2f)), Offset(w * x, h * (0.5f + half / 2f)), sw, StrokeCap.Round)
+                    }
                 }
                 Glyph.CHECK -> {
                     val sw = w * 0.11f

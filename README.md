@@ -21,6 +21,8 @@ Free, open source Android app for calm listening: 22,000 audiobooks, podcasts an
 
 <img src="docs/img/home.webp" width="19%" alt="Home"> <img src="docs/img/audiobooks.webp" width="19%" alt="Audiobooks"> <img src="docs/img/podcasts.webp" width="19%" alt="Podcasts"> <img src="docs/img/player.webp" width="19%" alt="Picture-book player"> <img src="docs/img/you.webp" width="19%" alt="You">
 
+<img src="docs/img/sounds.webp" width="19%" alt="Sound mixer"> <img src="docs/img/create.webp" width="19%" alt="Create a story with a name in it">
+
 </div>
 
 ---
@@ -38,6 +40,9 @@ Doom-scrolling at midnight helps nobody. Lamplore gives you a quiet alternative:
 | **Illustrated sleep stories** | Picture-book plates that turn as the story moves, with the sentence being read underneath. |
 | **Story Director** | Decides who speaks, how fast, and which sound sits underneath. Narrator, young and deep character voices, all on-device with Piper and Kokoro. |
 | **Real field recordings** | 10 scenes (rain, storm, ocean, forest, fire, desert...) and 7 instrumental beds, with animated scenes to match. |
+| **Sound mixer** | Any mix of the field recordings and music beds with a slider each, a sleep timer that fades out, saved mixes, and background play with the screen off. |
+| **Stories made for one** | Four offline tales with a name, pronoun and animal friend filled in, or an AI-written story from your own idea: bring your own API key, or use a small model on the phone. |
+| **Bedtime read by people** | A shelf of human-narrated fairy tales, lullabies and poems from LibriVox, plus sleep podcasts. |
 | **Offline, properly** | Whole books or chosen chapters, parallel downloads with resume, Wi-Fi only, delete after listening. |
 | **Sleep timer and resume** | Lock screen controls, 0.8x to 2x speed, every title remembers its place. |
 | **Your listening** | History, bookmarks with notes, a 17-week heatmap, your taste, custom lists and saved searches. |

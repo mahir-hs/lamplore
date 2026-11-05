@@ -133,7 +133,7 @@ private fun Hub(onOpen: (Page) -> Unit, onAbout: () -> Unit) {
         HubRow("Look and lock", if (app.lamplore.data.Lock.enabled) "Black or midnight, accent, lock is on" else "Background, accent colour, app lock") { onOpen(Page.LOOK) }
         HubRow("Storage manager", "Per-title sizes and bulk delete") { onOpen(Page.STORAGE_MGR) }
         HubRow("Diagnostics", if (app.lamplore.data.Crash.last(androidx.compose.ui.platform.LocalContext.current) != null) "A crash was recorded" else "Device info and the last crash") { onOpen(Page.DIAGNOSTICS) }
-        HubRow("About and credits", "Version 0.4", onAbout)
+        HubRow("About and credits", "Version 0.5", onAbout)
         Spacer(Modifier.height(36.dp))
     }
 }

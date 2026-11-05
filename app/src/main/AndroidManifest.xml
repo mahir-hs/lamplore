@@ -46,6 +46,10 @@
             </intent-filter>
         </service>
         <service
+            android:name=".audio.MixerService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+        <service
             android:name=".audio.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />

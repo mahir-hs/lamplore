@@ -21,7 +21,7 @@ fun AboutScreen(onBack: () -> Unit) {
         Text("About Lamplore", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 10.dp))
         Quiet(
             "Audio stories that calm the heart: fables retold from Aesop, folk tales and parables from around the world, " +
-                "and original sleep stories. Version 0.4.",
+                "and original sleep stories. Version 0.5.",
             Modifier.padding(top = 6.dp),
         )
 

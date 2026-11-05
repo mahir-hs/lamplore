@@ -29,7 +29,7 @@ data class Item(val key: String, val title: String, val author: String, val art:
  * Anything played is remembered (title, links, progress) so it can be resumed from the Listen tab.
  */
 object Listen {
-    private const val UA = "Lamplore/0.4 (+https://github.com/mahir-hs/lamplore)"
+    private const val UA = "Lamplore/0.5 (+https://github.com/mahir-hs/lamplore)"
 
     private const val AUDIO = "mediatype:audio AND (language:English OR language:eng)"
     const val LIBRIVOX = "collection:librivoxaudio AND $AUDIO"

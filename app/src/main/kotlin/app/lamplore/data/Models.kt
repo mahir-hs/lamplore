@@ -59,6 +59,7 @@ object Moods {
 object Rights {
     const val PUBLIC_DOMAIN = "Public-domain tale, retold"
     const val ORIGINAL = "Original by Lamplore"
+    const val GENERATED = "Written for you by an AI model"
     const val RETOLD = "Retold narrative (review before publishing)"
     const val USER_OWN = "I wrote this"
     const val USER_PD = "Public domain"

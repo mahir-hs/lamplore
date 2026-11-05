@@ -99,3 +99,11 @@ Intention -> Listen -> Reflect -> "Done for today"
 - TTS: DECIDED - zero cost, on-device (Piper first, Kokoro later) via sherpa-onnx; cloud TTS and Colab deferred
 - Content licensing review for seed library
 
+
+## Sounds, Create and sleep stories (0.5)
+- **Sound mixer** (`audio/Mixer.kt`, `audio/MixerService.kt`, `ui/MixerScreen.kt`, tab "Sounds"): one lazily created looping ExoPlayer per bundled sound, volume = slider squared, own audio focus (pauses on calls), a sleep timer that fades the last 30 s, presets in the `lamplore_mixer` prefs (included in backups). A foreground service of type mediaPlayback keeps it alive with the screen off.
+- **Create** (`ui/CreateScreen.kt`, tab "Create"):
+  - Personalised tales (`data/Templates.kt`): hand-written texts with `{name}`, `{an}`/`{animal}`, `{They}`/`{they}`/`{them}`/`{their}`. Verbs after a pronoun are past tense and never was/were so they agree for she, he and they.
+  - AI stories (`ai/StoryWriter.kt`): "My API key" posts to `api.anthropic.com/v1/messages` (default model `claude-haiku-5-5`, editable); "This phone" runs the Qwen3 LiteRT-LM model from `AiModels` on the CPU. The key is encrypted with an Android Keystore AES-GCM key (`data/Secret.kt`), stored in `lamplore_secret` prefs, and not part of backups. Results are saved as your own stories (`Rights.GENERATED`).
+  - Honest limits: small on-device models write plain, sometimes odd stories (see `docs/ai-director.md`). Cloud and on-device generation have not been tested on a phone yet.
+- **Bedtime, read by people**: an Audiobooks shelf (`ui/ListenScreen.kt`) querying LibriVox for bedtime, lullaby, nursery rhyme and fairy tale subjects.

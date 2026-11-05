@@ -48,7 +48,7 @@ private fun load(cacheDir: File, url: String): ImageBitmap? = runCatching {
             c.connectTimeout = 10_000
             c.readTimeout = 15_000
             c.instanceFollowRedirects = false
-            c.setRequestProperty("User-Agent", "Lamplore/0.4")
+            c.setRequestProperty("User-Agent", "Lamplore/0.5")
             val code = c.responseCode
             if (code in 300..399) {
                 u = URL(URL(u), c.getHeaderField("Location") ?: return null).toString()
