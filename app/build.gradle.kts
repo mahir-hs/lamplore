@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -18,9 +20,23 @@ android {
         }
     }
 
+    // Release signing: the key lives outside the repo. Point MURMUR_SIGNING at a properties file
+    // (storeFile, storePassword, keyAlias, keyPassword). Without it the release build is unsigned.
+    val signingProps = System.getenv("MURMUR_SIGNING")?.let { file(it) }?.takeIf { it.exists() }
+        ?.let { f -> Properties().also { p -> f.inputStream().use(p::load) } }
+    if (signingProps != null) {
+        signingConfigs.create("release") {
+            storeFile = file(signingProps.getProperty("storeFile"))
+            storePassword = signingProps.getProperty("storePassword")
+            keyAlias = signingProps.getProperty("keyAlias")
+            keyPassword = signingProps.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (signingProps != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
