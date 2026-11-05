@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "murmur"
+rootProject.name = "lamplore"
 include(":app")

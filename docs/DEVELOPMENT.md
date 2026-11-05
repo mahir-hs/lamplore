@@ -1,4 +1,4 @@
-# Murmur
+# Lamplore
 
 Audio stories that calm the heart. For everyone: fables, wisdom tales from around the world, and sleep stories.
 

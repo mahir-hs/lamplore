@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "app.murmur"
+    namespace = "app.lamplore"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "app.murmur"
+        applicationId = "app.lamplore"
         minSdk = 26
         targetSdk = 36
         versionCode = 2
@@ -20,9 +20,9 @@ android {
         }
     }
 
-    // Release signing: the key lives outside the repo. Point MURMUR_SIGNING at a properties file
+    // Release signing: the key lives outside the repo. Point LAMPLORE_SIGNING at a properties file
     // (storeFile, storePassword, keyAlias, keyPassword). Without it the release build is unsigned.
-    val signingProps = System.getenv("MURMUR_SIGNING")?.let { file(it) }?.takeIf { it.exists() }
+    val signingProps = System.getenv("LAMPLORE_SIGNING")?.let { file(it) }?.takeIf { it.exists() }
         ?.let { f -> Properties().also { p -> f.inputStream().use(p::load) } }
     if (signingProps != null) {
         signingConfigs.create("release") {

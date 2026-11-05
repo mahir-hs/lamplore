@@ -1,6 +1,6 @@
 # Background sound and music credits
 
-All recordings and music bundled in Murmur are used under the licenses below. Where a license requires
+All recordings and music bundled in Lamplore are used under the licenses below. Where a license requires
 attribution (CC BY), the credit here is the required attribution and is also shown in the app's About
 screen. "PDM" = Public Domain Mark declared by the recordist on radio aporee (a declaration, not a license).
 

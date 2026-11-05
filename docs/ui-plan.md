@@ -26,7 +26,7 @@ duplicated "330 MB" text, button heights on the welcome screen.
 Not judged yet: audio quality by ear, scene animation and battery, online library (unpublished), phases 3.
 
 ## Brief
-Murmur: audio stories that calm the heart, listened to mostly at night, to replace scrolling.
+Lamplore: audio stories that calm the heart, listened to mostly at night, to replace scrolling.
 Audience: general, adults and families. Primary job: get someone from "about to scroll" to
 "listening to a story" in one tap, and from the end of a story to "finished for tonight".
 
@@ -135,7 +135,7 @@ You
 - Storage, About (credits move here).
 
 First run (one screen)
-- "Murmur reads stories aloud. Pick a voice." Two cards: Ryan, Amy (20 MB each, progress bar,
+- "Lamplore reads stories aloud. Pick a voice." Two cards: Ryan, Amy (20 MB each, progress bar,
   "Hear a sample"), and a text link "Use the phone's voice for now".
 
 ## Phases

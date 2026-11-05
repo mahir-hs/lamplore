@@ -1,15 +1,15 @@
 <div align="center">
 
-<img src="docs/img/icon.svg" width="96" alt="Murmur icon">
+<img src="docs/img/icon.svg" width="96" alt="Lamplore icon">
 
-# Murmur
+# Lamplore
 
 ### Stories that calm the heart.
 
 Free, open source Android app for calm listening: 22,000 audiobooks, podcasts and illustrated bedtime stories, with on-device voices, real field recordings and no ads.
 
-[![Download](https://img.shields.io/badge/Download-APK-a8d08d?style=for-the-badge&logo=android&logoColor=0a1020&labelColor=0b1030)](https://github.com/mahir-hs/murmur/releases/latest/download/murmur.apk)
-[![Website](https://img.shields.io/badge/Website-mahir--hs.github.io%2Fmurmur-9acfd0?style=for-the-badge&labelColor=0b1030)](https://mahir-hs.github.io/murmur/)
+[![Download](https://img.shields.io/badge/Download-APK-a8d08d?style=for-the-badge&logo=android&logoColor=0a1020&labelColor=0b1030)](https://github.com/mahir-hs/lamplore/releases/latest/download/lamplore.apk)
+[![Website](https://img.shields.io/badge/Website-mahir--hs.github.io%2Flamplore-9acfd0?style=for-the-badge&labelColor=0b1030)](https://mahir-hs.github.io/lamplore/)
 
 ![Android 8+](https://img.shields.io/badge/Android-8.0%2B-3ddc84?logo=android&logoColor=white&labelColor=0b1030)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4-a97bff?logo=kotlin&logoColor=white&labelColor=0b1030)
@@ -25,9 +25,9 @@ Free, open source Android app for calm listening: 22,000 audiobooks, podcasts an
 
 ---
 
-## Why Murmur
+## Why Lamplore
 
-Doom-scrolling at midnight helps nobody. Murmur gives you a quiet alternative: put the phone down and let a voice take you somewhere calm. It is secular and family safe: fables, wisdom tales from many cultures, classics and sleep stories.
+Doom-scrolling at midnight helps nobody. Lamplore gives you a quiet alternative: put the phone down and let a voice take you somewhere calm. It is secular and family safe: fables, wisdom tales from many cultures, classics and sleep stories.
 
 ## What you get
 
@@ -46,7 +46,7 @@ Doom-scrolling at midnight helps nobody. Murmur gives you a quiet alternative: p
 
 ## Install
 
-1. [Download `murmur.apk`](https://github.com/mahir-hs/murmur/releases/latest/download/murmur.apk) (about 118 MB) on your Android phone.
+1. [Download `lamplore.apk`](https://github.com/mahir-hs/lamplore/releases/latest/download/lamplore.apk) (about 118 MB) on your Android phone.
 2. Open it and allow installs from your browser or file manager when Android asks.
 3. Press play. Optional: add better offline voices under Settings.
 
@@ -72,4 +72,4 @@ Audiobooks come from [LibriVox](https://librivox.org) via the [Internet Archive]
 
 ## Contributing
 
-Code is MIT licensed (see [LICENSE](LICENSE)); bundled media keeps its own licences. Bug reports and ideas are welcome in [Issues](https://github.com/mahir-hs/murmur/issues). If Murmur helps you sleep better, a star helps others find it.
+Code is MIT licensed (see [LICENSE](LICENSE)); bundled media keeps its own licences. Bug reports and ideas are welcome in [Issues](https://github.com/mahir-hs/lamplore/issues). If Lamplore helps you sleep better, a star helps others find it.
