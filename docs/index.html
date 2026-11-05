@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Murmur: free audiobooks, podcasts and calm bedtime stories for Android</title>
+<meta name="description" content="Murmur is a free, open source Android app for calm listening. Stream 22,000 LibriVox audiobooks and podcasts, or fall asleep to illustrated stories with on-device voices, field recordings and no ads.">
+<meta name="theme-color" content="#05070f">
+<link rel="canonical" href="https://mahir-hs.github.io/murmur/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Murmur: stories that calm the heart">
+<meta property="og:description" content="Free open source Android app. 22,000 audiobooks, podcasts and sleep stories with offline voices. No ads, no account.">
+<meta property="og:url" content="https://mahir-hs.github.io/murmur/">
+<meta property="og:image" content="https://mahir-hs.github.io/murmur/img/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/fraunces_title.ttf" as="font" type="font/ttf" crossorigin>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Murmur","operatingSystem":"Android 8.0+","applicationCategory":"MultimediaApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://mahir-hs.github.io/murmur/","downloadUrl":"https://github.com/mahir-hs/murmur/releases/latest/download/murmur.apk","description":"Free open source Android app for audiobooks, podcasts and bedtime stories."}
+</script>
+<style>
+@font-face{font-family:Fraunces;src:url(fonts/fraunces_title.ttf);font-display:swap}
+@font-face{font-family:Manrope;font-weight:500;src:url(fonts/manrope_500.ttf);font-display:swap}
+@font-face{font-family:Manrope;font-weight:700;src:url(fonts/manrope_700.ttf);font-display:swap}
+:root{--bg:#05070f;--card:#0d1120;--line:#1c2240;--txt:#e6e9f5;--mut:#8d93c4;--mint:#a8d08d;--sky:#9acfd0;--ember:#e0a458;--g:linear-gradient(110deg,#a8d08d,#9acfd0)}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font:500 17px/1.6 Manrope,system-ui,sans-serif;overflow-x:hidden}
+a{color:inherit}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:400;line-height:1.12}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+nav{position:sticky;top:0;z-index:9;backdrop-filter:blur(14px);background:#05070fcc;border-bottom:1px solid #ffffff0d}
+nav .wrap{display:flex;align-items:center;gap:22px;height:60px}
+nav b{font:400 24px Fraunces,serif;margin-right:auto;display:flex;align-items:center;gap:10px}
+nav b img{width:28px;height:28px;border-radius:8px}
+nav a{text-decoration:none;color:var(--mut);font-size:15px}
+nav a:hover{color:var(--txt)}
+.btn{display:inline-flex;align-items:center;gap:10px;background:var(--g);color:#0a1020!important;font-weight:700;padding:15px 28px;border-radius:99px;text-decoration:none;transition:transform .2s,box-shadow .2s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 10px 40px #a8d08d44}
+.btn.ghost{background:#ffffff0d;color:var(--txt)!important;border:1px solid var(--line)}
+.btn.ghost:hover{box-shadow:none;background:#ffffff16}
+nav .btn{padding:8px 18px}
+.hero{position:relative;padding:90px 0 40px;overflow:hidden}
+.sky{position:absolute;inset:0;z-index:-1;background:radial-gradient(900px 500px at 75% 10%,#2b3a7a55,transparent 70%),radial-gradient(600px 400px at 10% 0,#1c4a4a44,transparent 70%)}
+.stars{position:absolute;inset:0;z-index:-1;background-image:radial-gradient(1.5px 1.5px at 20px 30px,#fff9,transparent),radial-gradient(1px 1px at 120px 90px,#fff8,transparent),radial-gradient(1.5px 1.5px at 200px 40px,#fff6,transparent),radial-gradient(1px 1px at 70px 150px,#fff7,transparent);background-size:230px 190px;animation:tw 6s ease-in-out infinite alternate;-webkit-mask-image:linear-gradient(#000,transparent 85%);mask-image:linear-gradient(#000,transparent 85%)}
+@keyframes tw{to{opacity:.35}}
+.hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+.pill{display:inline-block;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mint);border:1px solid #a8d08d44;padding:5px 14px;border-radius:99px;margin-bottom:22px}
+h1{font-size:clamp(44px,7vw,80px);letter-spacing:-.02em}
+h1 em{font-style:normal;background:var(--g);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--mut);font-size:20px;max-width:30em;margin:24px 0 34px}
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.small{color:var(--mut);font-size:14px;margin-top:18px}
+.phones{position:relative;height:620px}
+.phone{position:absolute;width:250px;border-radius:34px;border:6px solid #1a1f38;background:#000;box-shadow:0 30px 80px #000a,0 0 0 1px #ffffff12;overflow:hidden}
+.phone img{display:block;width:100%;height:auto}
+.p1{left:2%;top:60px;transform:rotate(-6deg);animation:fl 7s ease-in-out infinite}
+.p2{right:0;top:0;transform:rotate(5deg);z-index:2;animation:fl 8s ease-in-out -2s infinite}
+@keyframes fl{50%{translate:0 -14px}}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:22px;overflow:hidden;margin:40px 0 20px}
+.stats div{background:var(--card);padding:26px 20px;text-align:center}
+.stats b{display:block;font:400 40px Fraunces,serif;background:var(--g);-webkit-background-clip:text;background-clip:text;color:transparent}
+.stats span{color:var(--mut);font-size:14px}
+section{padding:90px 0}
+h2{font-size:clamp(34px,5vw,52px);letter-spacing:-.01em;margin-bottom:14px}
+.sub{color:var(--mut);max-width:36em;margin-bottom:50px;font-size:18px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px;transition:transform .25s,border-color .25s}
+.card:hover{transform:translateY(-4px);border-color:#a8d08d55}
+.card i{font-style:normal;font-size:30px;display:block;margin-bottom:14px}
+.card h3{font-size:23px;margin-bottom:8px}
+.card p{color:var(--mut);font-size:15.5px}
+.shots{display:flex;gap:22px;overflow-x:auto;padding:10px 24px 30px;scroll-snap-type:x mandatory;max-width:1280px;margin:0 auto}
+.shots figure{flex:0 0 250px;scroll-snap-align:center}
+.shots .phone{position:static}
+.shots figcaption{text-align:center;color:var(--mut);font-size:14px;margin-top:14px}
+.band{background:linear-gradient(#05070f,#0a1022 50%,#05070f)}
+.steps{counter-reset:s;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.steps div{counter-increment:s;padding:26px;border-left:2px solid var(--line)}
+.steps div:before{content:counter(s);font:400 44px Fraunces,serif;color:var(--ember)}
+.steps h3{font-size:22px;margin:4px 0 8px}
+.steps p{color:var(--mut);font-size:15.5px}
+code{background:#ffffff10;padding:2px 8px;border-radius:7px;font-size:14px}
+details{border-bottom:1px solid var(--line);padding:20px 0}
+summary{cursor:pointer;font:400 22px Fraunces,serif;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";float:right;color:var(--mint)}
+details[open] summary::after{content:"\2212"}
+details p{color:var(--mut);margin-top:10px}
+.final{text-align:center;padding:110px 0}
+.final h2{font-size:clamp(38px,6vw,64px)}
+footer{border-top:1px solid var(--line);padding:34px 0;color:var(--mut);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between}
+@media(max-width:860px){.hero .wrap{grid-template-columns:1fr}.phones{height:520px;max-width:420px;margin:0 auto;width:100%}.phone{width:200px}.grid,.steps{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}nav a:not(.btn){display:none}.hero{padding-top:50px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<nav><div class="wrap"><b><img src="img/icon.svg" alt="">Murmur</b><a href="#features">Features</a><a href="#shots">Screens</a><a href="#faq">FAQ</a><a href="https://github.com/mahir-hs/murmur">GitHub</a><a class="btn" href="https://github.com/mahir-hs/murmur/releases/latest/download/murmur.apk">Download</a></div></nav>
+
+<header class="hero"><div class="sky"></div><div class="stars"></div>
+<div class="wrap">
+<div>
+<span class="pill">Free &middot; Open source &middot; No ads</span>
+<h1>Stories that <em>calm</em> the heart.</h1>
+<p class="lead">Put the phone down and let a voice take you somewhere quiet. Murmur streams 22,000 free audiobooks and podcasts, and tells illustrated bedtime stories with rain, fire and night sounds drifting underneath.</p>
+<div class="cta"><a class="btn" href="https://github.com/mahir-hs/murmur/releases/latest/download/murmur.apk">&#11015; Download for Android</a><a class="btn ghost" href="https://github.com/mahir-hs/murmur">&#9733; Star on GitHub</a></div>
+<p class="small">Android 8.0+ &middot; about 118 MB &middot; no account, no tracking</p>
+</div>
+<div class="phones"><div class="phone p1"><img src="img/home.webp" alt="Murmur home screen with Continue listening" width="600" height="1264"></div><div class="phone p2"><img src="img/player.webp" alt="Murmur player showing a picture book with live subtitles" width="600" height="1264"></div></div>
+</div></header>
+
+<div class="wrap"><div class="stats">
+<div><b>22,000</b><span>free audiobooks</span></div><div><b>10</b><span>field recordings</span></div><div><b>100%</b><span>on-device voices</span></div><div><b>0</b><span>ads or accounts</span></div></div></div>
+
+<section id="features"><div class="wrap">
+<h2>Everything you need to wind down</h2>
+<p class="sub">Built like a good podcast app, tuned like a lullaby.</p>
+<div class="grid">
+<div class="card"><i>&#128218;</i><h3>22,000 audiobooks</h3><p>All of LibriVox and old-time radio, streamed live from the Internet Archive. Nothing is re-hosted, nothing is paywalled.</p></div>
+<div class="card"><i>&#127908;</i><h3>Podcasts</h3><p>Browse the charts, search, follow shows and get new episodes in an Updates feed that checks in the background.</p></div>
+<div class="card"><i>&#127769;</i><h3>Illustrated sleep stories</h3><p>Fables and wisdom tales with picture-book plates that turn as the story moves, and the sentence being read underneath.</p></div>
+<div class="card"><i>&#129504;</i><h3>Story Director</h3><p>Reads a story and decides who speaks, how fast, and which sound sits underneath. Narrator, young and deep character voices, all on the phone.</p></div>
+<div class="card"><i>&#127783;</i><h3>Real field recordings</h3><p>Rain, storm, ocean, forest, fire, desert and more, with instrumental beds that shift as the scene changes. Animated to match.</p></div>
+<div class="card"><i>&#128229;</i><h3>Offline, properly</h3><p>Download whole books or chosen chapters, in parallel, with resume, Wi-Fi only and delete-after-listening.</p></div>
+<div class="card"><i>&#9201;</i><h3>Sleep timer and resume</h3><p>Fade out when you drift off. Every title remembers its place. Lock screen controls and 0.8x to 2x speed.</p></div>
+<div class="card"><i>&#128278;</i><h3>Bookmarks and history</h3><p>Save moments with notes, see how far you got, and keep a quiet record of your listening with a 17-week heatmap.</p></div>
+<div class="card"><i>&#128274;</i><h3>Private by design</h3><p>Incognito mode, optional biometric lock, local backup and restore. Your data stays on your phone.</p></div>
+</div></div></section>
+
+<section id="shots" class="band"><div class="wrap"><h2>Take a look</h2><p class="sub">A floating tab pill, a lantern-at-night palette and paper-cut covers. Real screenshots from a real phone.</p></div>
+<div class="shots">
+<figure><div class="phone"><img loading="lazy" src="img/home.webp" alt="Home" width="600" height="1264"></div><figcaption>Home</figcaption></figure>
+<figure><div class="phone"><img loading="lazy" src="img/audiobooks.webp" alt="Audiobooks" width="600" height="1264"></div><figcaption>Audiobooks</figcaption></figure>
+<figure><div class="phone"><img loading="lazy" src="img/podcasts.webp" alt="Podcasts" width="600" height="1264"></div><figcaption>Podcasts</figcaption></figure>
+<figure><div class="phone"><img loading="lazy" src="img/player.webp" alt="Player" width="600" height="1264"></div><figcaption>Picture-book player</figcaption></figure>
+<figure><div class="phone"><img loading="lazy" src="img/you.webp" alt="You" width="600" height="1264"></div><figcaption>You</figcaption></figure>
+</div></section>
+
+<section><div class="wrap"><h2>Install in a minute</h2><p class="sub">Murmur lives on GitHub, not an app store.</p>
+<div class="steps">
+<div><h3>Download the APK</h3><p>Tap Download above, or grab <code>murmur.apk</code> from the <a href="https://github.com/mahir-hs/murmur/releases/latest">latest release</a>.</p></div>
+<div><h3>Allow the install</h3><p>Open the file. When Android asks, allow your browser or file manager to install unknown apps.</p></div>
+<div><h3>Press play</h3><p>Optional: add better offline voices in Settings. Everything else works straight away.</p></div>
+</div></div></section>
+
+<section id="faq" class="band"><div class="wrap" style="max-width:780px"><h2>Questions</h2><br>
+<details><summary>Is it really free?</summary><p>Yes. No ads, no subscription, no sign-up. Audiobooks and podcasts come from LibriVox, the Internet Archive and podcast feeds that are free to stream.</p></details>
+<details><summary>Is it safe to install outside the Play Store?</summary><p>The full source is in this repository and every release is built from it. You can read it, build it yourself, or skip it.</p></details>
+<details><summary>Does it work offline?</summary><p>Yes for anything you download, and for the built-in stories with on-device voices. Streaming needs a connection.</p></details>
+<details><summary>Is it religious?</summary><p>No. Murmur is secular: fables, wisdom tales from many cultures, classics and sleep stories.</p></details>
+<details><summary>iPhone?</summary><p>Not planned. Android only for now.</p></details>
+<details><summary>How do I update?</summary><p>Download the newest APK and install it over the old one. Your history and downloads stay.</p></details>
+</div></section>
+
+<section class="final"><div class="wrap"><h2>Tonight, try a quieter hour.</h2><p class="sub" style="margin:0 auto 34px">Free, open source, and yours.</p><a class="btn" href="https://github.com/mahir-hs/murmur/releases/latest/download/murmur.apk">&#11015; Download Murmur</a></div></section>
+
+<footer><div class="wrap"><span>Murmur &middot; made with care</span><span><a href="https://github.com/mahir-hs/murmur">Source</a> &middot; <a href="https://github.com/mahir-hs/murmur/issues">Report a bug</a> &middot; <a href="https://github.com/mahir-hs/murmur/blob/main/docs/licenses/SOUNDS.md">Sound credits</a> &middot; <a href="https://github.com/mahir-hs/murmur/blob/main/docs/licenses/IMAGES.md">Image credits</a></span></div></footer>
+</body></html>
